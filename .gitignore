@@ -1,0 +1,34 @@
+# ─── Hugo build output ───────────────────────────────────────────────
+public/
+docs/
+resources/_gen/
+.hugo_build.lock
+hugo_stats.json
+
+# ─── Node.js ─────────────────────────────────────────────────────────
+node_modules/
+
+# ─── Go ──────────────────────────────────────────────────────────────
+# Compiled sync engine binary (built by CI or locally).
+sync-content
+
+# ─── OS files ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── IDE ─────────────────────────────────────────────────────────────
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── Environment and secrets ─────────────────────────────────────────
+.env
+
+# ─── Netlify ─────────────────────────────────────────────────────────
+.netlify
+
+# ─── Non-source files ────────────────────────────────────────────────
+*.pdf
+proposals/
+check_workflow_action_shas.py

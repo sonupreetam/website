@@ -1,0 +1,198 @@
+{{ define "main" }}
+<section class="section section-hero container-fluid mt-n3 pb-3">
+  <div class="row justify-content-center">
+    <div class="col-lg-12 text-center">
+      <span class="badge bg-accent-subtle text-accent-emphasis rounded-pill px-3 py-2 mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+        Open Source Compliance Automation
+      </span>
+      <h1 class="display-4 fw-bold">{{ .Title }}</h1>
+    </div>
+    <div class="col-lg-9 col-xl-8 text-center">
+      <p class="lead fs-4 text-body-secondary mb-4">{{ .Params.lead | safeHTML }}</p>
+      <div class="d-flex justify-content-center gap-3 flex-wrap mb-4">
+        <a class="btn btn-primary btn-cta rounded-pill btn-lg px-4" href="/docs/getting-started/" role="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          Get Started
+        </a>
+        <a class="btn btn-outline-secondary rounded-pill btn-lg px-4" href="https://github.com/complytime" role="button" target="_blank" rel="noopener">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="me-2"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      {{ .Content }}
+    </div>
+  </div>
+</section>
+{{ end }}
+
+{{ define "sidebar-prefooter" }}
+  {{ if site.Params.doks.backgroundDots -}}
+  <div class="d-flex justify-content-start">
+    <div class="bg-dots"></div>
+  </div>
+  {{ end -}}
+
+  <!-- Features Section -->
+  <section class="section section-md section-features">
+    <div class="container">
+      <div class="row justify-content-center text-center mb-5">
+        <div class="col-lg-8">
+          <h2 class="h2 fw-bold">Engineering-First Compliance</h2>
+          <p class="lead text-body-secondary">An API-driven approach to compliance that integrates seamlessly with your development workflow.</p>
+        </div>
+      </div>
+      <div class="row justify-content-center text-center g-4">
+        <div class="col-lg-4 col-md-6">
+          <div class="feature-card p-4 rounded-4 h-100">
+            <div class="feature-icon mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+            </div>
+            <h3 class="h5 fw-semibold">Intelligent Automation</h3>
+            <p class="text-body-secondary mb-0">Automate compliance workflows with intelligent tools that understand your infrastructure and policies.</p>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="feature-card p-4 rounded-4 h-100">
+            <div class="feature-icon mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3 class="h5 fw-semibold">Policy as Code</h3>
+            <p class="text-body-secondary mb-0">Define compliance requirements as code using OSCAL and integrate with your existing DevSecOps pipeline.</p>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="feature-card p-4 rounded-4 h-100">
+            <div class="feature-icon mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            </div>
+            <h3 class="h5 fw-semibold">Cloud Native</h3>
+            <p class="text-body-secondary mb-0">Built for modern cloud environments with support for Kubernetes, containers, and microservices architectures.</p>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="feature-card p-4 rounded-4 h-100">
+            <div class="feature-icon mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3 class="h5 fw-semibold">Evidence Collection</h3>
+            <p class="text-body-secondary mb-0">Automatically collect and organize compliance evidence with policy-driven observability toolkits.</p>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="feature-card p-4 rounded-4 h-100">
+            <div class="feature-icon mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+            </div>
+            <h3 class="h5 fw-semibold">OSCAL Native</h3>
+            <p class="text-body-secondary mb-0">Full support for NIST's Open Security Controls Assessment Language for standardized compliance data.</p>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+          <div class="feature-card p-4 rounded-4 h-100">
+            <div class="feature-icon mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+            </div>
+            <h3 class="h5 fw-semibold">Open Source</h3>
+            <p class="text-body-secondary mb-0">Fully open source under Apache 2.0 license. Contribute, customize, and build with the community.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Projects Section -->
+  <section class="section section-md section-projects bg-body-tertiary">
+    <div class="container">
+      <div class="row justify-content-center text-center mb-5">
+        <div class="col-lg-8">
+          <h2 class="h2 fw-bold">Our Projects</h2>
+          <p class="lead text-body-secondary">A suite of tools designed to streamline compliance workflows from code to audit.</p>
+        </div>
+      </div>
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <a href="/docs/projects/complyctl/" class="text-decoration-none">
+            <div class="project-card p-4 rounded-4 h-100">
+              <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill me-2">Go</span>
+                <span class="text-body-secondary small">CLI Tool</span>
+              </div>
+              <h3 class="h5 fw-semibold text-body">complyctl</h3>
+              <p class="text-body-secondary mb-0">A command-line tool for streamlining end-to-end compliance workflows on local systems.</p>
+            </div>
+          </a>
+        </div>
+        <div class="col-lg-6">
+          <a href="/docs/projects/complyscribe/" class="text-decoration-none">
+            <div class="project-card p-4 rounded-4 h-100">
+              <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill me-2">Python</span>
+                <span class="text-body-secondary small">Automation</span>
+              </div>
+              <h3 class="h5 fw-semibold text-body">complyscribe</h3>
+              <p class="text-body-secondary mb-0">A workflow automation tool for compliance content authoring with intelligent templates.</p>
+            </div>
+          </a>
+        </div>
+        <div class="col-lg-6">
+          <a href="/docs/projects/collector-components/" class="text-decoration-none">
+            <div class="project-card p-4 rounded-4 h-100">
+              <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill me-2">Go</span>
+                <span class="text-body-secondary small">Observability</span>
+              </div>
+              <h3 class="h5 fw-semibold text-body">collector-components</h3>
+              <p class="text-body-secondary mb-0">A policy-driven observability toolkit for automated compliance evidence collection.</p>
+            </div>
+          </a>
+        </div>
+        <div class="col-lg-6">
+          <a href="/docs/projects/compliance-to-policy/" class="text-decoration-none">
+            <div class="project-card p-4 rounded-4 h-100">
+              <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill me-2">Go</span>
+                <span class="text-body-secondary small">Framework</span>
+              </div>
+              <h3 class="h5 fw-semibold text-body">compliance-to-policy</h3>
+              <p class="text-body-secondary mb-0">C2P framework bridging the gap between compliance requirements and policy administration.</p>
+            </div>
+          </a>
+        </div>
+      </div>
+      <div class="text-center mt-4">
+        <a href="/docs/projects/" class="btn btn-outline-primary rounded-pill px-4">View All Projects →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="section section-md section-cta">
+    <div class="container">
+      <div class="row justify-content-center text-center">
+        <div class="col-lg-8">
+          <h2 class="h2 fw-bold mb-3">Ready to Automate Your Compliance?</h2>
+          <p class="lead text-body-secondary mb-4">Join the community building the future of cloud native compliance.</p>
+          <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a class="btn btn-primary rounded-pill px-4" href="/docs/getting-started/" role="button">Get Started</a>
+            <a class="btn btn-outline-secondary rounded-pill px-4" href="https://github.com/complytime/community" role="button" target="_blank" rel="noopener">Join Community</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{{ end }}
+
+{{ define "sidebar-footer" }}
+{{ if site.Params.doks.sectionFooter -}}
+<section class="section section-md container-fluid bg-body-tertiary">
+  <div class="row justify-content-center text-center">
+    <div class="col-lg-7">
+      <h2 class="mt-2 fw-bold">Start building with ComplyTime today</h2>
+      <p class="text-body-secondary">Streamline your compliance workflows with our open source tools.</p>
+      <a class="btn btn-primary rounded-pill px-4 my-2" href="/docs/getting-started/" role="button">Get Started</a>
+    </div>
+  </div>
+</section>
+{{ end -}}
+{{ end }}

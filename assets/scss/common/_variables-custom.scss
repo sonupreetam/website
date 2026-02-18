@@ -1,0 +1,152 @@
+// ComplyTime Custom Variables
+
+// Typography
+$font-family-sans-serif: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-family-monospace: "JetBrains Mono", "Fira Code", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+// Brand Colors - Cyan/Teal inspired compliance theme
+$cyan-50: #ecfeff;
+$cyan-100: #cffafe;
+$cyan-200: #a5f3fc;
+$cyan-300: #67e8f9;
+$cyan-400: #22d3ee;
+$cyan-500: #06b6d4;
+$cyan-600: #0891b2;
+$cyan-700: #0e7490;
+$cyan-800: #155e75;
+$cyan-900: #164e63;
+$cyan-950: #083344;
+
+// Slate for neutrals
+$slate-50: #f8fafc;
+$slate-100: #f1f5f9;
+$slate-200: #e2e8f0;
+$slate-300: #cbd5e1;
+$slate-400: #94a3b8;
+$slate-500: #64748b;
+$slate-600: #475569;
+$slate-700: #334155;
+$slate-800: #1e293b;
+$slate-900: #0f172a;
+$slate-950: #020617;
+
+// Primary colors
+$primary: $cyan-600;
+$primary-light: $cyan-500;
+$primary-dark: $cyan-700;
+
+// Feature card styling
+.feature-card {
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    border-color: $cyan-500;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba($cyan-600, 0.15);
+  }
+
+  .feature-icon {
+    color: $cyan-600;
+  }
+}
+
+// Project card styling
+.project-card {
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    border-color: $cyan-500;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba($cyan-600, 0.15);
+  }
+}
+
+// Section styling
+.section-hero {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+.section-features {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+.section-projects {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+.section-cta {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+// Badge accent colors
+.bg-accent-subtle {
+  background-color: rgba($cyan-500, 0.1) !important;
+}
+
+.text-accent-emphasis {
+  color: $cyan-600 !important;
+}
+
+[data-bs-theme="dark"] {
+  .bg-accent-subtle {
+    background-color: rgba($cyan-400, 0.15) !important;
+  }
+
+  .text-accent-emphasis {
+    color: $cyan-400 !important;
+  }
+
+  .feature-card,
+  .project-card {
+    &:hover {
+      box-shadow: 0 8px 25px -5px rgba($cyan-400, 0.2);
+    }
+  }
+
+  .feature-icon {
+    color: $cyan-400;
+  }
+}
+
+// Button styling
+.btn-primary {
+  background-color: $cyan-600;
+  border-color: $cyan-600;
+
+  &:hover {
+    background-color: $cyan-700;
+    border-color: $cyan-700;
+  }
+
+  &:focus {
+    box-shadow: 0 0 0 0.25rem rgba($cyan-500, 0.5);
+  }
+}
+
+.btn-outline-primary {
+  color: $cyan-600;
+  border-color: $cyan-600;
+
+  &:hover {
+    background-color: $cyan-600;
+    border-color: $cyan-600;
+    color: white;
+  }
+}
+
+// Code blocks
+pre {
+  border-radius: 0.5rem;
+}
+
+code {
+  font-family: $font-family-monospace;
+}

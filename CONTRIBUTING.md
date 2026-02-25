@@ -16,7 +16,6 @@ oriented quickly.
 - [Common Tasks](#common-tasks)
   - [Add or Edit a Documentation Page](#add-or-edit-a-documentation-page)
   - [Add a New Project Page](#add-a-new-project-page)
-  - [Add a New Tutorial](#add-a-new-tutorial)
   - [Change Navigation Menus](#change-navigation-menus)
   - [Modify the Homepage](#modify-the-homepage)
   - [Change Colors or Typography](#change-colors-or-typography)
@@ -126,7 +125,6 @@ website/
 │       ├── getting-started/         #   Getting started guide
 │       ├── projects/                #   Project pages (complyctl, etc.)
 │       ├── concepts/                #   Core concepts (OSCAL, etc.)
-│       ├── tutorials/               #   Step-by-step tutorials
 │       └── contributing/            #   Contributing info
 │
 ├── layouts/                         # Custom Hugo layout overrides
@@ -200,35 +198,6 @@ content/docs/projects/my-project/
 ├── _index.md          # Project overview (required)
 ├── installation.md    # Sub-page
 └── quick-start.md     # Sub-page
-```
-
-### Add a New Tutorial
-
-1. Create `content/docs/tutorials/my-tutorial.md`
-2. Use this structure:
-
-```markdown
----
-title: "Tutorial Title"
-description: "What the reader will learn"
-lead: "A brief summary of the tutorial."
-date: 2024-01-01T00:00:00+00:00
-draft: false
-weight: 110
-toc: true
----
-
-## Overview
-...
-
-## Prerequisites
-...
-
-## Steps
-...
-
-## Summary
-...
 ```
 
 ### Change Navigation Menus

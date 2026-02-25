@@ -53,7 +53,6 @@ website/
 │   │   ├── getting-started/
 │   │   ├── projects/      # Project pages (complyctl, complyscribe, etc.)
 │   │   ├── architecture/
-│   │   ├── tutorials/     # Step-by-step guides (placeholder entries)
 │   │   └── contributing/
 │   └── privacy.md
 ├── layouts/               # Custom layouts
@@ -75,7 +74,6 @@ website/
 |------------|------------------------|-----------------------------------|
 | Docs       | `/docs/getting-started/` | Documentation landing page       |
 | Projects   | `/docs/projects/`      | ComplyTime project pages          |
-| Tutorials  | `/docs/tutorials/`     | Step-by-step guides               |
 | Community  | `/docs/contributing/`  | Contribution and community info   |
 
 ### Adding Documentation
@@ -94,31 +92,6 @@ toc: true
 ---
 
 Your content here...
-```
-
-### Adding Tutorials
-
-Create a new Markdown file under `content/docs/tutorials/`:
-
-```markdown
----
-title: "Tutorial Title"
-description: "What the reader will learn"
-lead: "A brief summary of the tutorial."
-date: 2024-01-01T00:00:00+00:00
-draft: false
-weight: 110
-toc: true
----
-
-## Overview
-...
-
-## Prerequisites
-...
-
-## Steps
-...
 ```
 
 ## 🎨 Customization

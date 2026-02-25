@@ -6,9 +6,6 @@ images = ["cover.png"]
 # mainSections
 mainSections = ["docs"]
 
-[social]
-  twitter = "complytime"
-
 # Doks (@thulite/doks-core)
 [doks]
   # Color mode

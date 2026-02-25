@@ -3,7 +3,7 @@ name: Deploy Hugo to GitHub Pages
 
 on:
   push:
-    branches: main
+    branches: [main, feat/CPLYTM-1162-website-skeleton]
   workflow_dispatch:
 
 permissions:

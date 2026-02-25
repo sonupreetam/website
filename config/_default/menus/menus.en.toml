@@ -10,11 +10,6 @@
   identifier = "projects"
   url = "/docs/projects/"
 
-[[docs]]
-  name = "Concepts"
-  weight = 30
-  identifier = "concepts"
-  url = "/docs/concepts/"
 
 [[main]]
   name = "Projects"

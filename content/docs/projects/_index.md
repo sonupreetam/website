@@ -88,7 +88,7 @@ ComplyTime consists of several interconnected projects, each serving a specific 
 
 <div class="row g-4 mb-5">
   <div class="col-md-6">
-    <a href="/docs/projects/collector-components/" class="text-decoration-none">
+    <a href="/docs/projects/complytime-collector-components/" class="text-decoration-none">
       <div class="project-card p-4 rounded-4 h-100">
         <div class="d-flex align-items-center mb-3">
           <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill me-2">Go</span>
@@ -100,7 +100,7 @@ ComplyTime consists of several interconnected projects, each serving a specific 
     </a>
   </div>
   <div class="col-md-6">
-    <a href="https://github.com/complytime/collector-distro" class="text-decoration-none" target="_blank" rel="noopener">
+    <a href="https://github.com/complytime/complytime-collector-distro" class="text-decoration-none" target="_blank" rel="noopener">
       <div class="project-card p-4 rounded-4 h-100">
         <div class="d-flex align-items-center mb-3">
           <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill me-2">Distribution</span>
@@ -187,6 +187,5 @@ ComplyTime consists of several interconnected projects, each serving a specific 
 
 All ComplyTime projects are open source under the Apache 2.0 license. We welcome contributions from the community!
 
-- 📖 Read the [Contributing Guide](/docs/contributing/)
 - 💬 Join the [Community](https://github.com/complytime/community)
 - 🐛 Report issues on individual project repositories

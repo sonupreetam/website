@@ -10,11 +10,9 @@ weight: 100
 toc: true
 ---
 
-Welcome to the ComplyTime documentation. Here you'll find guides, tutorials, and reference documentation for all ComplyTime projects.
+Welcome to the ComplyTime documentation. Here you'll find guides and reference documentation for all ComplyTime projects.
 
 ## Quick Links
 
 - **[Getting Started](/docs/getting-started/)** - Set up your first ComplyTime project
 - **[Projects](/docs/projects/)** - Explore all ComplyTime tools and libraries
-- **[Concepts](/docs/concepts/)** - Understand the architecture and standards behind ComplyTime
-- **[Contributing](/docs/contributing/)** - Learn how to contribute to ComplyTime

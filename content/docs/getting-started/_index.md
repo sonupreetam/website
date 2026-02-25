@@ -58,7 +58,4 @@ complyctl assess
 ## Next Steps
 
 - Explore [all ComplyTime projects](/docs/projects/)
-- Learn about the [core concepts](/docs/concepts/)
-- Read about [OSCAL integration](/docs/concepts/oscal/)
-- [Contribute](/docs/contributing/) to ComplyTime
 

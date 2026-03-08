@@ -1,0 +1,340 @@
+# sync-config.yaml
+# Declarative manifest for cross-repo content synchronization.
+#
+# The sync engine reads this file and pulls the declared files from each
+# source repository into the website's content/ tree. It is designed to
+# run inside a scheduled GitHub Actions workflow (daily) or on-demand via
+# workflow_dispatch.
+#
+# Adding a new source: append an entry under `sources` with the repo,
+# branch, and file mappings. The sync engine handles the rest.
+#
+# ─────────────────────────────────────────────────────────────────────
+# SCOPE: Production repositories only (complytime/ org).
+#
+# complytime/ (Production)
+#   complyctl                       – CLI tool
+#   complyscribe                    – C2P engine
+#   complytime-collector-components – Observability toolkit
+#   compliance-to-policy-go         – C2P Go library (fork)
+#   org-infra                       – Shared CI/CD (infra, not synced)
+#   .github                         – Org config  (infra, not synced)
+#
+# Staging/labs repos (complytime-staging/) are NOT included here.
+# They can be added once promoted to production.
+# ─────────────────────────────────────────────────────────────────────
+
+# Global defaults applied to every source unless overridden.
+defaults:
+  branch: main
+  # GitHub API base (override for GHES).
+  github_api: https://api.github.com
+
+sources:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # complyctl — CLI tool for end-to-end compliance workflows
+  # https://github.com/complytime/complyctl
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - repo: complytime/complyctl
+    files:
+      # ── Project overview (README) ──
+      - src: README.md
+        dest: content/docs/projects/complyctl/_index.md
+        transform:
+          inject_frontmatter:
+            title: "complyctl"
+            description: "A command-line tool for streamlining end-to-end compliance workflows."
+            weight: 10
+          rewrite_links: true
+          strip_badges: true
+
+      # ── Quick Start ──
+      - src: docs/QUICK_START.md
+        dest: content/docs/projects/complyctl/quick-start.md
+        transform:
+          inject_frontmatter:
+            title: "Quick Start"
+            description: "Get up and running with complyctl in minutes."
+            weight: 20
+          rewrite_links: true
+
+      # ── Installation ──
+      - src: docs/INSTALLATION.md
+        dest: content/docs/projects/complyctl/installation.md
+        transform:
+          inject_frontmatter:
+            title: "Installation"
+            description: "Install complyctl on your system."
+            weight: 30
+          rewrite_links: true
+
+      # ── Plugin Guide ──
+      - src: docs/PLUGIN_GUIDE.md
+        dest: content/docs/projects/complyctl/plugin-guide.md
+        transform:
+          inject_frontmatter:
+            title: "Plugin Guide"
+            description: "Discover, install, and manage complyctl plugins."
+            weight: 40
+          rewrite_links: true
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # complyscribe — Compliance-to-Policy engine
+  # https://github.com/complytime/complyscribe
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - repo: complytime/complyscribe
+    files:
+      # ── Project overview (README) ──
+      - src: README.md
+        dest: content/docs/projects/complyscribe/_index.md
+        transform:
+          inject_frontmatter:
+            title: "complyscribe"
+            description: "Compliance-to-Policy engine for automating compliance documentation."
+            weight: 10
+          rewrite_links: true
+          strip_badges: true
+
+      # ── Docs index (detailed overview) ──
+      - src: docs/index.md
+        dest: content/docs/projects/complyscribe/overview.md
+        transform:
+          inject_frontmatter:
+            title: "Overview"
+            description: "Detailed overview of complyscribe features and concepts."
+            weight: 20
+          rewrite_links: true
+
+      # ── Troubleshooting ──
+      - src: docs/troubleshooting.md
+        dest: content/docs/projects/complyscribe/troubleshooting.md
+        transform:
+          inject_frontmatter:
+            title: "Troubleshooting"
+            description: "Common issues and solutions for complyscribe."
+            weight: 30
+          rewrite_links: true
+
+      # ── Tutorials ──
+      - src: docs/tutorials/authoring.md
+        dest: content/docs/projects/complyscribe/tutorials/authoring.md
+        transform:
+          inject_frontmatter:
+            title: "Authoring Content"
+            description: "Tutorial on authoring compliance content with complyscribe."
+            weight: 41
+          rewrite_links: true
+
+      - src: docs/tutorials/github.md
+        dest: content/docs/projects/complyscribe/tutorials/github.md
+        transform:
+          inject_frontmatter:
+            title: "GitHub Integration"
+            description: "Using complyscribe with GitHub Actions."
+            weight: 42
+          rewrite_links: true
+
+      - src: docs/tutorials/sync-cac-content.md
+        dest: content/docs/projects/complyscribe/tutorials/sync-cac-content.md
+        transform:
+          inject_frontmatter:
+            title: "Sync CaC Content"
+            description: "Synchronize Compliance-as-Code content with complyscribe."
+            weight: 43
+          rewrite_links: true
+
+      - src: docs/tutorials/sync-oscal-content.md
+        dest: content/docs/projects/complyscribe/tutorials/sync-oscal-content.md
+        transform:
+          inject_frontmatter:
+            title: "Sync OSCAL Content"
+            description: "Synchronize OSCAL content with complyscribe."
+            weight: 44
+          rewrite_links: true
+
+      # ── Workflows ──
+      - src: docs/workflows/assemble_diagrams.md
+        dest: content/docs/projects/complyscribe/workflows/assemble-diagrams.md
+        transform:
+          inject_frontmatter:
+            title: "Assemble Diagrams"
+            description: "Workflow for assembling compliance diagrams."
+            weight: 51
+          rewrite_links: true
+
+      - src: docs/workflows/create_diagrams.md
+        dest: content/docs/projects/complyscribe/workflows/create-diagrams.md
+        transform:
+          inject_frontmatter:
+            title: "Create Diagrams"
+            description: "Workflow for creating compliance diagrams."
+            weight: 52
+          rewrite_links: true
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # compliance-to-policy-go — C2P Go library (fork)
+  # https://github.com/complytime/compliance-to-policy-go
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - repo: complytime/compliance-to-policy-go
+    files:
+      # ── Project overview (README) ──
+      - src: README.md
+        dest: content/docs/projects/compliance-to-policy-go/_index.md
+        transform:
+          inject_frontmatter:
+            title: "compliance-to-policy-go"
+            description: "Go library bridging compliance requirements and policy engines."
+            weight: 10
+          rewrite_links: true
+          strip_badges: true
+
+      # ── Quick Start ──
+      - src: docs/QUICK_START.md
+        dest: content/docs/projects/compliance-to-policy-go/quick-start.md
+        transform:
+          inject_frontmatter:
+            title: "Quick Start"
+            description: "Get started with the C2P Go library."
+            weight: 20
+          rewrite_links: true
+
+      # ── Kyverno integration ──
+      - src: docs/kyverno/README.md
+        dest: content/docs/projects/compliance-to-policy-go/kyverno.md
+        transform:
+          inject_frontmatter:
+            title: "Kyverno Integration"
+            description: "Using C2P with the Kyverno policy engine."
+            weight: 30
+          rewrite_links: true
+
+      # ── OCM integration ──
+      - src: docs/ocm/README.md
+        dest: content/docs/projects/compliance-to-policy-go/ocm.md
+        transform:
+          inject_frontmatter:
+            title: "OCM Integration"
+            description: "Using C2P with Open Cluster Management."
+            weight: 40
+          rewrite_links: true
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # complytime-collector-components — Observability toolkit
+  # https://github.com/complytime/complytime-collector-components
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - repo: complytime/complytime-collector-components
+    files:
+      # ── Project overview (README) ──
+      - src: README.md
+        dest: content/docs/projects/complytime-collector-components/_index.md
+        transform:
+          inject_frontmatter:
+            title: "Collector Components"
+            description: "OpenTelemetry-based observability toolkit for compliance data collection."
+            weight: 10
+          rewrite_links: true
+          strip_badges: true
+
+      # ── Design ──
+      - src: docs/DESIGN.md
+        dest: content/docs/projects/complytime-collector-components/design.md
+        transform:
+          inject_frontmatter:
+            title: "Design"
+            description: "Architecture and design decisions for Collector Components."
+            weight: 20
+          rewrite_links: true
+
+      # ── Development ──
+      - src: docs/DEVELOPMENT.md
+        dest: content/docs/projects/complytime-collector-components/development.md
+        transform:
+          inject_frontmatter:
+            title: "Development"
+            description: "Developer guide for building and extending Collector Components."
+            weight: 30
+          rewrite_links: true
+
+      # ── Attributes reference ──
+      - src: docs/attributes/compliance.md
+        dest: content/docs/projects/complytime-collector-components/attributes/compliance.md
+        transform:
+          inject_frontmatter:
+            title: "Compliance Attributes"
+            description: "Reference for compliance-related OpenTelemetry attributes."
+            weight: 41
+          rewrite_links: true
+
+      - src: docs/attributes/policy.md
+        dest: content/docs/projects/complytime-collector-components/attributes/policy.md
+        transform:
+          inject_frontmatter:
+            title: "Policy Attributes"
+            description: "Reference for policy-related OpenTelemetry attributes."
+            weight: 42
+          rewrite_links: true
+
+      # ── Integration guides ──
+      - src: docs/integration/Sync_Evidence2Hyperproof.md
+        dest: content/docs/projects/complytime-collector-components/integration/sync-evidence-hyperproof.md
+        transform:
+          inject_frontmatter:
+            title: "Sync Evidence to Hyperproof"
+            description: "Integration guide for syncing compliance evidence to Hyperproof."
+            weight: 50
+          rewrite_links: true
+
+  # ────────────────────────────────────────────────────────────────────
+  # To add a new repo once promoted to production:
+  #
+  # - repo: complytime/promoted-project
+  #   files:
+  #     - src: README.md
+  #       dest: content/docs/projects/promoted-project/_index.md
+  #       transform:
+  #         inject_frontmatter:
+  #           title: "Promoted Project"
+  #           description: "Description here."
+  #           weight: 10
+  #         rewrite_links: true
+  #         strip_badges: true
+
+# ═══════════════════════════════════════════════════════════════════════
+# Discovery configuration.
+#
+# When `sync-content --discover` is run, the engine scans the GitHub org
+# for repos and docs that are NOT yet declared in `sources` above.
+# It reports what's new so a human can decide whether to add them.
+#
+# This catches:
+#   • New repos appearing in the org
+#   • New .md files added under docs/ or root in tracked repos
+#
+# Discovery never writes files — it only reports.
+# ═══════════════════════════════════════════════════════════════════════
+discovery:
+  # GitHub org to scan for repos.
+  org: complytime
+
+  # Repos to ignore during discovery (infra, config, non-project repos).
+  ignore_repos:
+    - complytime/.github
+    - complytime/org-infra
+    - complytime/complytime-website   # this repo (self)
+
+  # File patterns to ignore when scanning docs inside tracked repos.
+  # These are internal/contributor-facing files we intentionally skip.
+  ignore_files:
+    - CONTRIBUTING.md
+    - CODE_OF_CONDUCT.md
+    - RELEASE_PROCESS.md
+    - STYLE_GUIDE.md
+    - TESTING_FARM.md
+    - E2E_INTEGRATION.md
+    - CHANGELOG.md
+    - MAINTAINERS.md
+    - LICENSE
+
+  # Directories to scan for Markdown files (in addition to root README.md).
+  scan_paths:
+    - docs

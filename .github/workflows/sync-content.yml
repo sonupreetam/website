@@ -1,0 +1,170 @@
+---
+# Centralized content sync from upstream ComplyTime repositories.
+# Runs on a daily schedule and can be triggered manually.
+#
+# How it works:
+#   1. Checks out the website repo
+#   2. Runs the Go sync engine against sync-config.yaml
+#   3. If content changed, opens a PR
+#   4. Runs discovery to detect new repos/docs not yet
+#      in the manifest
+#
+# To add a new source repo, edit sync-config.yaml.
+
+name: Sync Upstream Content
+
+"on":
+  schedule:
+    - cron: "0 6 * * *"
+
+  workflow_dispatch:
+    inputs:
+      repo_filter:
+        description: >-
+          Optional: sync only this repo
+          (e.g. complytime/complyctl)
+        required: false
+        default: ""
+      dry_run:
+        description: "Dry run — report changes without writing"
+        required: false
+        type: boolean
+        default: false
+      discover_only:
+        description: "Only run discovery (skip sync)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout website repository
+        uses: >-
+          actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: >-
+          actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5  # v6.2.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build sync engine
+        run: go build -o sync-content ./cmd/sync-content/
+
+      # ── Content Sync ───────────────────────────────────────
+      - name: Run content sync
+        if: inputs.discover_only != 'true'
+        id: sync
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FLAGS="--write"
+
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            FLAGS=""
+            echo "::notice::Running in dry-run mode"
+          fi
+
+          if [[ -n "${{ inputs.repo_filter }}" ]]; then
+            FLAGS="${FLAGS} --repo ${{ inputs.repo_filter }}"
+          fi
+
+          ./sync-content "${FLAGS}"
+
+      - name: Check for changes
+        if: inputs.discover_only != 'true'
+        id: changes
+        run: |
+          if [[ -n "$(git status --porcelain content/)" ]]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Content changes detected"
+            git diff --stat content/
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No content changes"
+          fi
+
+      - name: Create Pull Request
+        if: >-
+          steps.changes.outputs.has_changes == 'true'
+          && inputs.dry_run != 'true'
+          && inputs.discover_only != 'true'
+        uses: >-
+          peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0  # v8.1.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            chore: sync upstream content
+
+            Automated content sync from upstream repositories.
+            See sync-config.yaml for the full source manifest.
+          branch: automated/sync-content
+          delete-branch: true
+          title: "chore: sync upstream content"
+          body: |
+            ## Automated Content Sync
+
+            This PR was created by the
+            [sync-content workflow][run].
+
+            [run]: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ### What changed
+            Content was synced from upstream repositories
+            as declared in `sync-config.yaml`.
+
+            ### Review checklist
+            - [ ] Rendered pages look correct
+            - [ ] Links are not broken
+            - [ ] Frontmatter is properly injected
+
+            ---
+            *Automated PR. Merge to deploy.*
+          labels: |
+            automated
+            content-sync
+
+      # ── Discovery ──────────────────────────────────────────
+      - name: Run discovery
+        id: discovery
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./sync-content --discover
+
+      - name: Create discovery issue
+        if: >-
+          steps.discovery.outputs.has_discoveries == 'true'
+        uses: >-
+          peter-evans/create-issue-from-file@fca9117c27cdc29c6c4db3b86c48e4115a786710  # v6.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: >-
+            chore: new repos or docs detected —
+            update sync-config.yaml
+          content-filepath: ${{ github.step_summary }}
+          labels: |
+            automated
+            content-discovery
+        continue-on-error: true
+
+      - name: Annotate if discoveries found
+        if: >-
+          steps.discovery.outputs.has_discoveries == 'true'
+        run: |
+          new_repos="${{ steps.discovery.outputs.new_repos }}"
+          new_files="${{ steps.discovery.outputs.new_files }}"
+          echo "::warning::Discovery found new repos (${new_repos})" \
+            "or new doc files (${new_files})" \
+            "not in sync-config.yaml." \
+            "Review the step summary for details."

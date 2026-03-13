@@ -26,6 +26,14 @@ defaults:
   branch: main
 
 discovery:
+  ignore_repos:
+    - .github
+    - website
+    - community
+    - org-infra
+    - complytime-demos
+    - complytime-policies
+    - complytime-collector-distro
   scan_paths:
     - docs
   ignore_files:

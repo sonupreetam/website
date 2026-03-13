@@ -34,6 +34,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -310,7 +311,7 @@ func (c *apiClient) getJSON(ctx context.Context, url string, dst any) error {
 			return err
 		}
 
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		resp.Body.Close()
 		lastErr = fmt.Errorf("GET %s: %d %s", url, resp.StatusCode, body)
 
@@ -320,7 +321,11 @@ func (c *apiClient) getJSON(ctx context.Context, url string, dst any) error {
 
 		wait := retryWait(resp, attempt)
 		slog.Warn("rate limited, retrying", "url", url, "attempt", attempt+1, "wait", wait.Round(time.Second))
-		time.Sleep(wait)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(wait):
+		}
 	}
 	return lastErr
 }
@@ -355,13 +360,22 @@ func retryWait(resp *http.Response, attempt int) time.Duration {
 	return time.Duration(1<<uint(attempt)) * time.Second
 }
 
+// escapePathSegments escapes each segment of a slash-delimited path for use in URLs.
+func escapePathSegments(path string) string {
+	segs := strings.Split(path, "/")
+	for i, s := range segs {
+		segs[i] = url.PathEscape(s)
+	}
+	return strings.Join(segs, "/")
+}
+
 func (c *apiClient) listOrgRepos(ctx context.Context, org string) ([]Repo, error) {
 	var all []Repo
 	for page := 1; ; page++ {
-		url := fmt.Sprintf("%s/orgs/%s/repos?per_page=%d&page=%d&type=public",
-			githubAPI, org, pageSize, page)
+		apiURL := fmt.Sprintf("%s/orgs/%s/repos?per_page=%d&page=%d&type=public",
+			githubAPI, url.PathEscape(org), pageSize, page)
 		var batch []Repo
-		if err := c.getJSON(ctx, url, &batch); err != nil {
+		if err := c.getJSON(ctx, apiURL, &batch); err != nil {
 			return nil, err
 		}
 		all = append(all, batch...)
@@ -373,9 +387,10 @@ func (c *apiClient) listOrgRepos(ctx context.Context, org string) ([]Repo, error
 }
 
 func (c *apiClient) getREADME(ctx context.Context, owner, repo string) (string, string, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/readme", githubAPI, owner, repo)
+	apiURL := fmt.Sprintf("%s/repos/%s/%s/readme",
+		githubAPI, url.PathEscape(owner), url.PathEscape(repo))
 	var f FileResponse
-	if err := c.getJSON(ctx, url, &f); err != nil {
+	if err := c.getJSON(ctx, apiURL, &f); err != nil {
 		return "", "", err
 	}
 	content, err := decodeContent(f)
@@ -383,9 +398,10 @@ func (c *apiClient) getREADME(ctx context.Context, owner, repo string) (string, 
 }
 
 func (c *apiClient) getFileContent(ctx context.Context, owner, repo, path string) (string, string, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/contents/%s", githubAPI, owner, repo, path)
+	apiURL := fmt.Sprintf("%s/repos/%s/%s/contents/%s",
+		githubAPI, url.PathEscape(owner), url.PathEscape(repo), escapePathSegments(path))
 	var f FileResponse
-	if err := c.getJSON(ctx, url, &f); err != nil {
+	if err := c.getJSON(ctx, apiURL, &f); err != nil {
 		return "", "", err
 	}
 	content, err := decodeContent(f)
@@ -393,18 +409,20 @@ func (c *apiClient) getFileContent(ctx context.Context, owner, repo, path string
 }
 
 func (c *apiClient) listDir(ctx context.Context, owner, repo, path string) ([]DirEntry, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/contents/%s", githubAPI, owner, repo, path)
+	apiURL := fmt.Sprintf("%s/repos/%s/%s/contents/%s",
+		githubAPI, url.PathEscape(owner), url.PathEscape(repo), escapePathSegments(path))
 	var entries []DirEntry
-	if err := c.getJSON(ctx, url, &entries); err != nil {
+	if err := c.getJSON(ctx, apiURL, &entries); err != nil {
 		return nil, err
 	}
 	return entries, nil
 }
 
 func (c *apiClient) getBranchSHA(ctx context.Context, owner, repo, branch string) (string, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/branches/%s", githubAPI, owner, repo, branch)
+	apiURL := fmt.Sprintf("%s/repos/%s/%s/branches/%s",
+		githubAPI, url.PathEscape(owner), url.PathEscape(repo), url.PathEscape(branch))
 	var b BranchResponse
-	if err := c.getJSON(ctx, url, &b); err != nil {
+	if err := c.getJSON(ctx, apiURL, &b); err != nil {
 		return "", err
 	}
 	return b.Commit.SHA, nil
@@ -482,6 +500,23 @@ func isValidRepoName(name string) bool {
 		!strings.Contains(name, "/") &&
 		!strings.Contains(name, "\\") &&
 		!strings.Contains(name, "..")
+}
+
+// isUnderDir reports whether target is under base after resolving symlinks and
+// cleaning both paths. Prevents path traversal attacks from config dest fields
+// or API-sourced file paths that contain "../" sequences.
+func isUnderDir(base, target string) bool {
+	absBase, err := filepath.Abs(base)
+	if err != nil {
+		return false
+	}
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return false
+	}
+	absBase = filepath.Clean(absBase) + string(filepath.Separator)
+	absTarget = filepath.Clean(absTarget)
+	return strings.HasPrefix(absTarget, absBase) || absTarget == filepath.Clean(strings.TrimSuffix(absBase, string(filepath.Separator)))
 }
 
 func languageOrDefault(lang string) string {
@@ -614,11 +649,6 @@ func insertAfterFrontmatter(content, insert []byte) []byte {
 // fetching each declared file from GitHub, applying the requested transforms,
 // and writing the result to the output directory.
 func syncConfigSource(ctx context.Context, gh *apiClient, src Source, defaults Defaults, output string, write bool, result *syncResult) {
-	branch := src.Branch
-	if branch == "" {
-		branch = defaults.Branch
-	}
-
 	parts := strings.SplitN(src.Repo, "/", 2)
 	if len(parts) != 2 {
 		slog.Error("invalid repo format in config, expected owner/name", "repo", src.Repo)
@@ -644,7 +674,7 @@ func syncConfigSource(ctx context.Context, gh *apiClient, src Source, defaults D
 			content = stripBadges(content)
 		}
 		if file.Transform.RewriteLinks {
-			content = rewriteRelativeLinks(content, owner, repoName, branch)
+			content = rewriteRelativeLinks(content, owner, repoName, src.Branch)
 		}
 
 		out := []byte(content)
@@ -658,11 +688,19 @@ func syncConfigSource(ctx context.Context, gh *apiClient, src Source, defaults D
 		}
 		provenance := fmt.Sprintf(
 			"<!-- synced from %s/%s@%s (%s) -->\n",
-			src.Repo, file.Src, branch, shortSHA,
+			src.Repo, file.Src, src.Branch, shortSHA,
 		)
 		out = insertAfterFrontmatter(out, []byte(provenance))
 
 		destPath := filepath.Join(output, file.Dest)
+
+		if !isUnderDir(output, destPath) {
+			logger.Error("path traversal blocked", "dest", file.Dest, "resolved", destPath)
+			result.mu.Lock()
+			result.errors++
+			result.mu.Unlock()
+			continue
+		}
 
 		if !write {
 			logger.Info("would write config file (dry-run)", "src", file.Src, "dest", destPath)
@@ -785,9 +823,9 @@ func readFrontmatterField(path, field string) string {
 	return ""
 }
 
-// cleanStaleContent removes synced content for repos that are no longer active,
-// preserving the section _index.md. Only removes the sync tool's _index.md from
-// each repo directory; Hugo module-mounted sub-pages are virtual and unaffected.
+// cleanStaleContent removes all generated content for repos that are no longer
+// active. Uses os.RemoveAll to remove the entire repo directory, including
+// _index.md, overview.md, and any doc sub-pages.
 func cleanStaleContent(outputDir string, activeRepos map[string]bool) error {
 	projectsDir := filepath.Join(outputDir, "content", "docs", "projects")
 	entries, err := os.ReadDir(projectsDir)
@@ -802,11 +840,11 @@ func cleanStaleContent(outputDir string, activeRepos map[string]bool) error {
 		if activeRepos[repoName] {
 			continue
 		}
-		indexPath := filepath.Join(projectsDir, repoName, "_index.md")
-		if err := os.Remove(indexPath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("removing stale %s: %w", indexPath, err)
+		repoDir := filepath.Join(projectsDir, repoName)
+		if err := os.RemoveAll(repoDir); err != nil {
+			return fmt.Errorf("removing stale repo dir %s: %w", repoDir, err)
 		}
-		os.Remove(filepath.Join(projectsDir, repoName))
+		slog.Info("removed stale repo directory", "repo", repoName)
 	}
 
 	return nil
@@ -1193,6 +1231,14 @@ func syncRepoDocPages(ctx context.Context, gh *apiClient, org string, repo Repo,
 			destRel := filepath.Join("content", "docs", "projects", repo.Name, relPath)
 			destPath := filepath.Join(output, destRel)
 
+			if !isUnderDir(output, destPath) {
+				logger.Error("path traversal blocked", "src", filePath, "dest", destRel)
+				result.mu.Lock()
+				result.errors++
+				result.mu.Unlock()
+				continue
+			}
+
 			dir := filepath.Dir(relPath)
 			for dir != "." && dir != "" {
 				neededDirs[dir] = true
@@ -1280,6 +1326,19 @@ func syncRepoDocPages(ctx context.Context, gh *apiClient, org string, repo Repo,
 	}
 }
 
+// buildProjectCard constructs a ProjectCard from repo metadata.
+func buildProjectCard(repo Repo) ProjectCard {
+	return ProjectCard{
+		Name:        repo.Name,
+		Language:    languageOrDefault(repo.Language),
+		Type:        deriveProjectType(repo),
+		Description: repo.Description,
+		URL:         fmt.Sprintf("/docs/projects/%s/", repo.Name),
+		Repo:        repo.HTMLURL,
+		Stars:       repo.StargazersCount,
+	}
+}
+
 // repoWork holds the inputs and outputs for processing a single repo.
 type repoWork struct {
 	repo      Repo
@@ -1321,7 +1380,7 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 
 		if !write {
 			logger.Info("unchanged (branch SHA match), skipping", "sha", sha)
-			return nil
+			return &repoWork{repo: repo, sha: sha, card: buildProjectCard(repo), unchanged: true}
 		}
 
 		logger.Info("unchanged (branch SHA match), skipping fetches", "sha", sha)
@@ -1329,17 +1388,7 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 			carryForwardManifest(result, repo.Name, oldManifest)
 		}
 
-		docURL := fmt.Sprintf("/docs/projects/%s/", repo.Name)
-		card := ProjectCard{
-			Name:        repo.Name,
-			Language:    languageOrDefault(repo.Language),
-			Type:        deriveProjectType(repo),
-			Description: repo.Description,
-			URL:         docURL,
-			Repo:        repo.HTMLURL,
-			Stars:       repo.StargazersCount,
-		}
-		return &repoWork{repo: repo, sha: sha, card: card, unchanged: true}
+		return &repoWork{repo: repo, sha: sha, card: buildProjectCard(repo), unchanged: true}
 	}
 
 	// Dry-run: report what would happen without fetching content.
@@ -1353,7 +1402,7 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 		result.synced++
 		result.mu.Unlock()
 		logger.Info("would sync (dry-run)", "sha", sha)
-		return nil
+		return &repoWork{repo: repo, sha: sha, card: buildProjectCard(repo)}
 	}
 
 	// Slow path: branch SHA changed — fetch content and compare file-level SHAs.
@@ -1390,6 +1439,13 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 		indexPage := buildSectionIndex(repo, sha, readmeSHA)
 		indexRel := filepath.Join("content", "docs", "projects", repo.Name, "_index.md")
 		indexPath := filepath.Join(output, indexRel)
+		if !isUnderDir(output, indexPath) {
+			logger.Error("path traversal blocked", "path", indexRel)
+			result.mu.Lock()
+			result.errors++
+			result.mu.Unlock()
+			return nil
+		}
 		written, err := writeFileSafe(indexPath, []byte(indexPage))
 		if err != nil {
 			logger.Error("error writing section index", "path", indexPath, "error", err)
@@ -1408,6 +1464,13 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 		overviewPage := buildOverviewPage(repo, readme)
 		overviewRel := filepath.Join("content", "docs", "projects", repo.Name, "overview.md")
 		overviewPath := filepath.Join(output, overviewRel)
+		if !isUnderDir(output, overviewPath) {
+			logger.Error("path traversal blocked", "path", overviewRel)
+			result.mu.Lock()
+			result.errors++
+			result.mu.Unlock()
+			return nil
+		}
 		written, err = writeFileSafe(overviewPath, []byte(overviewPage))
 		if err != nil {
 			logger.Error("error writing overview page", "path", overviewPath, "error", err)
@@ -1424,18 +1487,6 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 		}
 	}
 
-	docURL := fmt.Sprintf("/docs/projects/%s/", repo.Name)
-
-	card := ProjectCard{
-		Name:        repo.Name,
-		Language:    languageOrDefault(repo.Language),
-		Type:        deriveProjectType(repo),
-		Description: repo.Description,
-		URL:         docURL,
-		Repo:        repo.HTMLURL,
-		Stars:       repo.StargazersCount,
-	}
-
 	result.mu.Lock()
 	if !existed {
 		result.added = append(result.added, repo.Name)
@@ -1447,7 +1498,7 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 	result.synced++
 	result.mu.Unlock()
 
-	return &repoWork{repo: repo, sha: sha, card: card}
+	return &repoWork{repo: repo, sha: sha, card: buildProjectCard(repo)}
 }
 
 // writeGitHubOutputs writes structured outputs for GitHub Actions integration.
@@ -1480,7 +1531,7 @@ func main() {
 	token := flag.String("token", "", "GitHub API token (or set GITHUB_TOKEN env var)")
 	output := flag.String("output", ".", "Hugo site root directory")
 	include := flag.String("include", "", "Comma-separated repo allowlist (empty = auto-discover all)")
-	exclude := flag.String("exclude", ".github,website,community,org-infra,complytime-demos,complytime-policies,complytime-collector-distro", "Comma-separated repo names to skip")
+	exclude := flag.String("exclude", "", "Comma-separated repo names to skip (merged with config discovery.ignore_repos)")
 	write := flag.Bool("write", false, "Apply changes to disk (default: dry-run)")
 	summaryFile := flag.String("summary", "", "Write markdown change summary to this file (for PR body)")
 	timeout := flag.Duration("timeout", 3*time.Minute, "Overall timeout for all API operations")
@@ -1530,6 +1581,9 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Info("loaded sync config", "path", *configPath, "sources", len(cfg.Sources))
+		for _, r := range cfg.Discovery.IgnoreRepos {
+			excludeSet[r] = true
+		}
 	}
 
 	if *discover {

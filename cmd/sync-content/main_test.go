@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -1070,9 +1071,9 @@ func TestSyncRepoDocPages(t *testing.T) {
 	}
 
 	cases := []struct {
-		relPath   string
-		title     string
-		provSrc   string
+		relPath string
+		title   string
+		provSrc string
 	}{
 		{
 			relPath: "content/docs/projects/test-repo/installation.md",
@@ -1186,5 +1187,215 @@ func TestSyncRepoDocPages_SkipsConfigTracked(t *testing.T) {
 
 	if result.synced != 1 {
 		t.Errorf("synced = %d, want 1 (only the non-tracked file)", result.synced)
+	}
+}
+
+// --- Hardening Tests (T037) ---
+
+func TestIsUnderDir(t *testing.T) {
+	base := t.TempDir()
+
+	tests := []struct {
+		name   string
+		target string
+		want   bool
+	}{
+		{"child file", filepath.Join(base, "content", "file.md"), true},
+		{"same dir", base, true},
+		{"traversal", filepath.Join(base, "..", "etc", "passwd"), false},
+		{"double traversal", filepath.Join(base, "content", "..", "..", "etc"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isUnderDir(base, tt.target)
+			if got != tt.want {
+				t.Errorf("isUnderDir(%q, %q) = %v, want %v", base, tt.target, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPathTraversalRejection(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/org/complyctl/contents/README.md", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(FileResponse{
+			Content:  b64("# README\nContent here."),
+			Encoding: "base64",
+			SHA:      "sha-traversal",
+		})
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	gh := newTestClient(server.URL)
+	output := t.TempDir()
+
+	src := Source{
+		Repo:   "org/complyctl",
+		Branch: "main",
+		Files: []FileSpec{
+			{
+				Src:  "README.md",
+				Dest: "../../etc/cron.d/backdoor.md",
+			},
+		},
+	}
+
+	result := &syncResult{}
+	syncConfigSource(context.Background(), gh, src, Defaults{Branch: "main"}, output, true, result)
+
+	if result.errors != 1 {
+		t.Errorf("expected 1 error for path traversal, got %d", result.errors)
+	}
+
+	escapedPath := filepath.Join(output, "../../etc/cron.d/backdoor.md")
+	if _, err := os.Stat(escapedPath); !os.IsNotExist(err) {
+		t.Error("traversal file should not have been written")
+	}
+}
+
+func TestContextCancellationDuringRetry(t *testing.T) {
+	callCount := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/test-endpoint", func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("Retry-After", "60")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"message":"rate limited"}`))
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	gh := newTestClient(server.URL)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+	}()
+
+	start := time.Now()
+	var result map[string]any
+	err := gh.getJSON(ctx, server.URL+"/test-endpoint", &result)
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("expected error from cancelled context")
+	}
+	if elapsed > 2*time.Second {
+		t.Errorf("cancellation took %v, expected < 2s", elapsed)
+	}
+}
+
+func TestCleanStaleContent_RemovesAllFiles(t *testing.T) {
+	output := t.TempDir()
+	projectsDir := filepath.Join(output, "content", "docs", "projects")
+
+	staleDir := filepath.Join(projectsDir, "removed-repo")
+	os.MkdirAll(staleDir, 0o755)
+	os.WriteFile(filepath.Join(staleDir, "_index.md"), []byte("---\ntitle: stale\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(staleDir, "overview.md"), []byte("stale overview"), 0o644)
+	subDir := filepath.Join(staleDir, "docs")
+	os.MkdirAll(subDir, 0o755)
+	os.WriteFile(filepath.Join(subDir, "guide.md"), []byte("stale guide"), 0o644)
+
+	activeDir := filepath.Join(projectsDir, "active-repo")
+	os.MkdirAll(activeDir, 0o755)
+	os.WriteFile(filepath.Join(activeDir, "_index.md"), []byte("---\ntitle: active\n---\n"), 0o644)
+
+	activeRepos := map[string]bool{"active-repo": true}
+	err := cleanStaleContent(output, activeRepos)
+	if err != nil {
+		t.Fatalf("cleanStaleContent failed: %v", err)
+	}
+
+	if _, err := os.Stat(staleDir); !os.IsNotExist(err) {
+		t.Error("stale repo directory should have been completely removed")
+	}
+	if _, err := os.Stat(filepath.Join(staleDir, "overview.md")); !os.IsNotExist(err) {
+		t.Error("stale overview.md should have been removed")
+	}
+	if _, err := os.Stat(filepath.Join(subDir, "guide.md")); !os.IsNotExist(err) {
+		t.Error("stale doc sub-page should have been removed")
+	}
+
+	if _, err := os.Stat(filepath.Join(activeDir, "_index.md")); err != nil {
+		t.Error("active repo _index.md should be preserved")
+	}
+}
+
+func TestBuildProjectCard(t *testing.T) {
+	repo := Repo{
+		Name:            "complyctl",
+		FullName:        "complytime/complyctl",
+		Description:     "A CLI tool",
+		Language:        "Go",
+		StargazersCount: 42,
+		HTMLURL:         "https://github.com/complytime/complyctl",
+		Topics:          []string{"cli"},
+	}
+
+	card := buildProjectCard(repo)
+	if card.Name != "complyctl" {
+		t.Errorf("Name = %q, want %q", card.Name, "complyctl")
+	}
+	if card.URL != "/docs/projects/complyctl/" {
+		t.Errorf("URL = %q, want %q", card.URL, "/docs/projects/complyctl/")
+	}
+	if card.Type != "CLI Tool" {
+		t.Errorf("Type = %q, want %q", card.Type, "CLI Tool")
+	}
+	if card.Stars != 42 {
+		t.Errorf("Stars = %d, want 42", card.Stars)
+	}
+}
+
+func TestEscapePathSegments(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"docs/guide.md", "docs/guide.md"},
+		{"docs/my file.md", "docs/my%20file.md"},
+		{"path/with spaces/file#1.md", "path/with%20spaces/file%231.md"},
+	}
+	for _, tt := range tests {
+		got := escapePathSegments(tt.input)
+		if got != tt.want {
+			t.Errorf("escapePathSegments(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestDryRunReturnsCard(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/testorg/test-repo/branches/main", func(w http.ResponseWriter, r *http.Request) {
+		resp := BranchResponse{}
+		resp.Commit.SHA = "new-sha"
+		json.NewEncoder(w).Encode(resp)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	gh := newTestClient(server.URL)
+	output := t.TempDir()
+	repo := Repo{
+		Name:          "test-repo",
+		FullName:      "testorg/test-repo",
+		Description:   "Test",
+		Language:      "Go",
+		HTMLURL:       "https://github.com/testorg/test-repo",
+		DefaultBranch: "main",
+	}
+
+	result := &syncResult{}
+	work := processRepo(context.Background(), gh, "testorg", output, repo, false, false, result, map[string]repoState{}, nil)
+
+	if work == nil {
+		t.Fatal("dry-run processRepo should return non-nil repoWork")
+	}
+	if work.card.Name != "test-repo" {
+		t.Errorf("card.Name = %q, want %q", work.card.Name, "test-repo")
 	}
 }

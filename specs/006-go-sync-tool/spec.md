@@ -1,75 +1,224 @@
 # Feature Specification: Go Content Sync Tool
 
 **Feature Branch**: `006-go-sync-tool`
-**Created**: 2026-03-06
-**Status**: Draft
 **Phase**: 2 (Content Infrastructure)
 
-## Comparative Analysis
+## Overview
 
-### Current State (`complytime/website`)
+The ComplyTime website (`complytime.dev`) documents a growing ecosystem of open-source compliance tools hosted across multiple repositories in the `complytime` GitHub organization. Before this feature, project documentation was manually copied into the site — error-prone, inconsistent, and unable to scale as new repos were added.
 
-- No Go tooling — project is Node.js/Hugo only
-- No `go.mod` or `go.sum`
-- No `cmd/` directory
-- Project documentation content is manually synced (some docs include `<!-- synced from complytime/<repo>@main (hash) on date -->` comments indicating a manual or external sync process)
-- No `data/projects.json` generation
-- No automated README or metadata fetching from GitHub API
+This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~2160 lines across 11 source files in `package main`) that auto-discovers all org repos via the GitHub REST API, fetches their README content and metadata, applies Markdown transforms, and generates Hugo-compatible pages and landing page card data. A declarative config overlay (`sync-config.yaml`) provides precision control for repos needing custom documentation layouts.
 
-### Target State (`test-website`)
+**Dependencies**: Go 1.25+, `gopkg.in/yaml.v3` (sole third-party Go dep), Hugo 0.155.1 extended, Node.js 22.
 
-- `go.mod` — Go module shared with Hugo Modules
-- `cmd/sync-content/main.go` (556 lines) — Go CLI tool that:
-  - Lists all repos in the `complytime` GitHub org via REST API
-  - Fetches README.md, description, primary language, star count, last push date for each repo
-  - Generates `content/projects/[repo].md` with frontmatter and README content
-  - Writes `data/projects.json` for the landing page project cards template
-  - Checks each repo for `.specify/` directory; fetches `constitution.md`, `spec.md`, `plan.md` into `content/specs/[repo]/`
-  - Records source commit SHA in frontmatter for staleness detection
-  - Supports flags: `--org`, `--token`, `--output`, `--include`, `--exclude`, `--dry-run`, `--summary`
-  - Handles GitHub API rate limiting
-  - Uses `net/http` and `encoding/json` only (no third-party GitHub client)
+## Scope
 
-### Delta
+### In Scope
 
-| Item | Action | Details |
-|------|--------|---------|
-| `go.mod` | Add | Go module definition, shared with Hugo Modules |
-| `go.sum` | Add | Go dependency checksums |
-| `cmd/sync-content/main.go` | Add | 556-line Go CLI for GitHub org content sync |
-| `content/projects/` | Generated | Output directory for per-repo Markdown pages |
-| `data/projects.json` | Generated | Output file for landing page project cards |
-| `content/specs/` | Generated | Output directory for `.specify/` artifacts |
+> IDs are grouped by domain (001–018: core, 030–032: detection/tests, 040–041: site integration, 050–052: operations, 060–065: hardening). Gaps between groups are intentional.
 
-### Conflicts
+| ID | Capability |
+|----|-----------|
+| IS-001 | Paginated org listing via GitHub REST API |
+| IS-002 | README fetch with base64 decoding and SHA tracking |
+| IS-003 | Per-repo page generation: section index (`_index.md`, frontmatter only) + overview page (`overview.md`, README content) |
+| IS-004 | Landing page card generation (`data/projects.json`) with type derivation from topics |
+| IS-005 | Config-driven file sync with transforms (`inject_frontmatter`, `rewrite_links`, `strip_badges`) |
+| IS-006 | Concurrent processing with bounded worker pool (`--workers`) |
+| IS-007 | Dry-run by default; `--write` flag required for disk I/O |
+| IS-008 | Markdown transforms: `stripLeadingH1`, `stripBadges`, `rewriteRelativeLinks` |
+| IS-009 | Repo filtering: exclude archived repos, forks, `--include`/`--exclude` lists |
+| IS-010 | `.gitignore` patterns for generated content (`content/docs/projects/*/`, `data/projects.json`) |
+| IS-011 | Hugo section scaffolding: hand-maintained `content/docs/projects/_index.md` preserved by gitignore glob |
+| IS-012 | Sync manifest (`.sync-manifest.json`) for orphan file tracking |
+| IS-013 | Byte-level dedup: `writeFileSafe` skips writing identical files |
+| IS-014 | Doc page auto-sync from `discovery.scan_paths` directories |
+| IS-015 | Discovery mode (`--discover`): scan org for untracked repos and doc files |
+| IS-016 | Single-repo mode (`--repo`): sync only one repository |
+| IS-017 | Summary file generation (`--summary report.md`) |
+| IS-018 | GitHub CI outputs: `GITHUB_OUTPUT` variables and `GITHUB_STEP_SUMMARY` |
+| IS-030 | Two-tier SHA-based change detection (branch SHA + README SHA) |
+| IS-031 | Stale content cleanup via manifest diff |
+| IS-032 | Unit and integration tests (12 `*_test.go` files, 89 test functions) |
+| IS-040 | Dynamic landing page project cards from `data/projects.json` |
+| IS-041 | Docs sidebar with collapsed repo-level sections via Hugo cascade |
+| IS-050 | Hand-maintained project docs removed from git tracking |
+| IS-051 | CI deploy workflow with sync step, `--lock`, and `workflow_dispatch` |
+| IS-052 | Constitution transitional provisions update *(pending — post-merge)* |
+| IS-060 | Path traversal prevention for config `dest` and API-sourced paths |
+| IS-061 | Context-aware retry sleep (respects context cancellation during backoff) |
+| IS-062 | Complete stale cleanup (remove all generated files via `os.RemoveAll`, not just `_index.md`) |
+| IS-063 | Bounded error response body reads (4KB limit via `io.LimitReader`) |
+| IS-064 | URL path escaping for all API URL construction (`url.PathEscape`) |
+| IS-065 | Unify `--exclude` flag default with config `discovery.ignore_repos` |
+| IS-070 | Content lockfile (`.content-lock.json`) for SHA-pinned content approval |
+| IS-071 | Weekly content sync check workflow (`sync-content-check.yml`) |
+| IS-072 | `ref` parameter threading for GitHub API calls |
 
-- Adding `go.mod` introduces Go as a project dependency. Contributors will need Go installed (in addition to Node.js and Hugo).
-- The existing `.devcontainer/Dockerfile` does not include Go. It may need updating (separate concern).
-- The existing manually-synced docs under `content/docs/projects/` may overlap with the sync tool's `content/projects/` output. These are different paths (`/docs/projects/` vs `/projects/`) so no direct conflict, but the relationship should be documented.
+### Out of Scope
 
-## Acceptance Criteria
+- `.specify/` artifact sync (fetching upstream `constitution.md`, `spec.md`, `plan.md` into site) — deferred to a future feature
+- Private repository access
+- GitHub Enterprise / custom API URL
+- Log level control (`--verbose` / `--quiet`)
+- Config schema versioning
 
-1. `go.mod` exists and is valid (`go mod verify` passes)
-2. `cmd/sync-content/main.go` compiles without errors (`go build ./cmd/sync-content`)
-3. Running `go run ./cmd/sync-content --help` shows usage information
-4. Running with `--org complytime --dry-run` lists repos without writing files
-5. Running with `--org complytime --token $GITHUB_TOKEN` generates:
-   - `content/projects/*.md` files with valid Hugo frontmatter
-   - `data/projects.json` with project metadata array
-   - `content/specs/*/` directories for repos with `.specify/`
-6. Generated frontmatter includes: title, description, language, stars, last_updated, source_sha
-7. Rate limiting is handled gracefully (no crashes on 403 responses)
-8. `go vet ./...` passes with no issues
+## User Stories
 
-## Migration Steps
+### US1: Safe Local Preview (Priority: P1) — MVP
 
-1. Add `go.mod` with module path matching the repo
-2. Add `cmd/sync-content/main.go`
-3. Run `go mod tidy` to generate `go.sum`
-4. Verify build: `go build ./cmd/sync-content`
-5. Test with `--dry-run` flag
-6. Document Go requirement in README.md or CONTRIBUTING.md
+**As a** contributor, **I want to** clone the repo, run the sync tool, and preview the full site locally, **so that** I can verify documentation changes without risk.
 
-## Rollback Plan
+**Acceptance Scenarios**:
+- **US1-SC1**: Running without `--write` creates zero files. Tool logs intended actions.
+- **US1-SC2**: Running with `--write` generates: (a) section indexes at `content/docs/projects/{repo}/_index.md` (frontmatter only), (b) overview pages at `content/docs/projects/{repo}/overview.md` (README content), (c) doc sub-pages from `discovery.scan_paths`, (d) `data/projects.json`, (e) `.sync-manifest.json`.
+- **US1-SC3**: `hugo server` after sync produces zero build errors. Pages accessible at `/docs/projects/`.
 
-Delete `go.mod`, `go.sum`, and `cmd/` directory. Remove any generated `content/projects/` and `data/projects.json` files.
+### US2: Org-Wide Auto-Discovery (Priority: P1)
+
+**As a** site maintainer, **I want** new repos added to the org to automatically appear on the website, **so that** no config changes or PRs are needed beyond the regular content sync review (US7).
+
+**Acceptance Scenarios**:
+- **US2-SC1**: Repos NOT in `sync-config.yaml` produce: (a) `_index.md` with frontmatter (`title`, `description`, `params.language`, `params.stars`, `params.source_sha`, `params.readme_sha`, `params.seo.*`) and no body, (b) `overview.md` with transformed README content.
+- **US2-SC2**: `data/projects.json` contains a `ProjectCard` for every eligible repo (non-archived, non-forked), sorted alphabetically, with fields `name`, `language`, `type`, `description`, `url`, `repo`, `stars`.
+
+> **Note**: When `--lock` is active (production deploys), new repos not yet in `.content-lock.json` are skipped until the next content sync check PR (US7) adds them to the lockfile and is merged. Auto-discovery still detects them; the approval gate controls when they reach production.
+
+### US3: Config-Driven Precision Sync (Priority: P1)
+
+**As a** documentation lead, **I want** precise control over specific files' destinations, frontmatter, and transforms, **so that** key projects have customized documentation layouts.
+
+**Acceptance Scenarios**:
+- **US3-SC1**: For repos with `skip_org_sync: true`, no auto-generated section index or overview page exists, BUT the repo's `ProjectCard` is in `data/projects.json`.
+- **US3-SC2**: Config-declared files appear at their `dest` paths with correct transforms applied.
+
+### US4: Change Detection and Stale Cleanup (Priority: P2)
+
+**As a** CI pipeline, **I want** the sync tool to skip unchanged repos and clean up stale content, **so that** builds are fast and the site stays clean.
+
+**Acceptance Scenarios**:
+- **US4-SC1**: On a second consecutive run, unchanged repos show "unchanged" in log output with zero disk writes.
+- **US4-SC2**: When a repo is removed from the org, all generated files (section index, overview, doc sub-pages, entire directory) are cleaned up.
+
+### US5: CI/CD Pipeline Integration (Priority: P2)
+
+**As a** DevOps engineer, **I want** the sync tool to run automatically in GitHub Actions, **so that** production deploys always use reviewed, approved content.
+
+**Acceptance Scenarios**:
+- **US5-SC1**: Deploy workflow includes Go setup, sync step with `GITHUB_TOKEN` and `--lock`, runs before Hugo build. Content is fetched at approved SHAs from `.content-lock.json`.
+- **US5-SC2**: CI workflow validates PRs with `go vet`, `gofmt`, `go test -race`, sync dry-run (with `--lock`), and Hugo build.
+- **US5-SC3**: `GITHUB_OUTPUT` contains `has_changes`, `changed_count`, `error_count`. `GITHUB_STEP_SUMMARY` contains a markdown summary. CI deploys proceed even with non-fatal warnings.
+
+### US6: Concurrent Processing with Race Safety (Priority: P3)
+
+**As a** developer, **I want** the tool to process repos concurrently and pass race detection, **so that** processing is fast and correct.
+
+**Acceptance Scenarios**:
+- **US6-SC1**: `go test -race ./cmd/sync-content/...` passes with zero data race warnings.
+- **US6-SC2**: Unit tests cover all pure functions; integration tests verify end-to-end processing with mock API.
+
+### US7: Content Approval Gate (Priority: P2)
+
+**As a** site maintainer, **I want** upstream documentation changes to require human review before reaching production, **so that** broken or undesirable content never deploys automatically.
+
+**Acceptance Scenarios**:
+- **US7-SC1**: A committed `.content-lock.json` pins each repo to an approved branch SHA. The deploy workflow fetches content at those locked SHAs — not HEAD.
+- **US7-SC2**: A weekly check workflow detects upstream changes, updates `.content-lock.json`, and opens a PR. No content change reaches production without a merged PR.
+- **US7-SC3**: Running with `--lock` and a repo not in the lockfile skips that repo (unapproved content is not fetched).
+- **US7-SC4**: Running with `--lock --update-lock` writes current upstream SHAs to the lockfile for all discovered repos.
+
+## CLI Interface
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--org` | `complytime` | GitHub organization to scan |
+| `--token` | `$GITHUB_TOKEN` | GitHub API token (or set env var) |
+| `--config` | (none) | Path to `sync-config.yaml` for config-driven file syncs |
+| `--write` | `false` | Required to write files to disk (default: dry-run) |
+| `--output` | `.` | Hugo site root directory |
+| `--workers` | `5` | Max concurrent repo processing goroutines |
+| `--timeout` | `3m` | Overall timeout for all API operations |
+| `--include` | (all) | Comma-separated repo allowlist |
+| `--exclude` | (see config) | Comma-separated repo names to skip |
+| `--repo` | (none) | Sync only this repo (e.g., `complytime/complyctl`). Overrides `--include` |
+| `--discover` | `false` | Scan org for new repos and untracked doc files, then exit with report |
+| `--summary` | (none) | Write markdown change summary to this file |
+| `--lock` | (none) | Path to `.content-lock.json` for content approval gating |
+| `--update-lock` | `false` | Write current upstream SHAs to the lockfile (requires `--lock`) |
+
+## Output Structure
+
+```text
+content/docs/projects/
+├── _index.md                 # Hand-maintained section index (committed)
+└── {repo}/                   # Generated per-repo content (gitignored)
+    ├── _index.md             # Section index — frontmatter only, no body
+    ├── overview.md           # README content as child page (weight: 1)
+    └── {doc}.md              # Doc pages from discovery.scan_paths
+
+data/
+└── projects.json             # Landing page project cards (gitignored)
+
+.sync-manifest.json           # Written file manifest for orphan cleanup (gitignored)
+.content-lock.json            # Approved upstream SHAs per repo (committed)
+```
+
+## Non-Functional Requirements
+
+| ID | Requirement | Target |
+|----|------------|--------|
+| NFR-001 | Full org sync completes within timeout | < 60s with token |
+| NFR-002 | Hugo build time with generated content | < 2s |
+| NFR-003 | All logging via `log/slog` with structured fields | — |
+| NFR-004 | SPDX license headers on all Go source files | — |
+| NFR-005 | All code in `package main` within `cmd/sync-content/`; no unnecessary packages or abstractions | — |
+| NFR-006 | Only permitted third-party dep: `gopkg.in/yaml.v3` | — |
+| NFR-007 | Generated content gitignored, not committed | — |
+| NFR-008 | Idempotent runs: same input produces same output | — |
+
+## Security Requirements
+
+| ID | Requirement | Task |
+|----|------------|------|
+| SEC-001 | Path traversal prevention: all write paths validated under `--output` directory | T028 |
+| SEC-002 | Bounded error response body reads (4KB max) to prevent memory exhaustion | T031 |
+| SEC-003 | URL path escaping for all API URL construction to prevent injection | T032 |
+
+## Inherited Capabilities
+
+The following capabilities were ported from the test-website reference implementation and are functional:
+
+- **Two-tier SHA-based change detection**: Branch SHA (`params.source_sha`) for fast pre-filtering; README SHA (`params.readme_sha`) for content-level accuracy
+- **Discovery mode** (`--discover`): Scans org for repos and doc files not tracked in config
+- **Single-repo filtering** (`--repo`): Process one repo without full org scan
+- **Doc page auto-sync**: Syncs Markdown files from `discovery.scan_paths` directories
+- **Context cancellation**: `--timeout` flag with context propagation; retry sleep respects cancellation (IS-061)
+- **CI integration outputs**: Writes `GITHUB_OUTPUT` variables and `GITHUB_STEP_SUMMARY` for GitHub Actions; deploys proceed even with non-fatal warnings
+- **Content approval gate** (`--lock`): SHA-pinned lockfile gates deployments to reviewed content; weekly check workflow proposes updates via PR
+
+## Success Criteria
+
+All criteria must pass before feature 006 merges to `main`.
+
+| ID | Criterion | Verification |
+|----|----------|--------------|
+| SC-001 | `go.mod` exists and `go mod verify` passes | `go mod verify` |
+| SC-002 | `cmd/sync-content/` compiles without errors | `go build ./cmd/sync-content` |
+| SC-003 | Dry-run produces zero files; write mode produces correct output structure | T003, T004 |
+| SC-004 | Hugo builds with zero errors after sync | T005 |
+| SC-005 | Auto-discovered repos have section index + overview + card | T006, T007 |
+| SC-006 | Config overlay applies transforms at declared dest paths | T008, T009 (deferred until sources declared; code paths covered by unit tests) |
+| SC-007 | Change detection skips unchanged repos; stale cleanup removes all files | T010 |
+| SC-008 | Unit and integration tests pass | T015, T016 |
+| SC-009 | `go vet` and `gofmt` pass with zero issues | T019 |
+| SC-010 | CI workflow validates PRs with lint, test, dry-run, build | T014 |
+| SC-011 | Path traversal prevention rejects paths escaping `--output` directory | T028, T037 |
+| SC-012 | Context-aware retry sleep respects cancellation promptly | T029, T037 |
+| SC-013 | Stale cleanup removes all generated files (overview.md, doc sub-pages), not just `_index.md` | T030, T037 |
+| SC-014 | `--lock` gates content to approved SHAs; unapproved repos are skipped | `lock_test.go`, `sync_test.go` (`TestProcessRepo_LockedSHA`) |
+| SC-015 | `--update-lock` writes current upstream SHAs to lockfile | `lock_test.go` (`TestWriteLock`, `TestWriteLock_DeterministicOrder`) |
+| SC-016 | Weekly check workflow creates/updates a PR with lockfile changes | `sync-content-check.yml` manual dispatch |
+
+## Merge Readiness Gate
+
+All 16 success criteria (SC-001 through SC-016) MUST pass before merging feature 006 to `main`. SC-006 is deferred (blocked on config sources being declared) but its code paths are covered by unit tests (`TestSyncConfigSource`, `TestProcessRepo`). SC-016 requires a manual `workflow_dispatch` run of `sync-content-check.yml` after merge.

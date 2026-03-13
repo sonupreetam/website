@@ -110,55 +110,24 @@
           <p class="lead text-body-secondary">A suite of tools designed to streamline compliance workflows from code to audit.</p>
         </div>
       </div>
+      {{- $colors := dict "Go" "primary" "Python" "warning" "Shell" "secondary" "TypeScript" "info" -}}
+      {{- $projects := sort site.Data.projects "stars" "desc" -}}
       <div class="row g-4">
+        {{- range first 4 $projects }}
         <div class="col-lg-6">
-          <a href="/docs/projects/complyctl/" class="text-decoration-none">
+          <a href="{{ .url }}" class="text-decoration-none"{{ if hasPrefix .url "http" }} target="_blank" rel="noopener"{{ end }}>
             <div class="project-card p-4 rounded-4 h-100">
               <div class="d-flex align-items-center mb-3">
-                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill me-2">Go</span>
-                <span class="text-body-secondary small">CLI Tool</span>
+                {{- $color := default "secondary" (index $colors .language) }}
+                <span class="badge bg-{{ $color }}-subtle text-{{ $color }}-emphasis rounded-pill me-2">{{ .language }}</span>
+                <span class="text-body-secondary small">{{ .type }}</span>
               </div>
-              <h3 class="h5 fw-semibold text-body">complyctl</h3>
-              <p class="text-body-secondary mb-0">A command-line tool for streamlining end-to-end compliance workflows on local systems.</p>
+              <h3 class="h5 fw-semibold text-body">{{ .name }}</h3>
+              <p class="text-body-secondary mb-0">{{ .description }}</p>
             </div>
           </a>
         </div>
-        <div class="col-lg-6">
-          <a href="/docs/projects/complyscribe/" class="text-decoration-none">
-            <div class="project-card p-4 rounded-4 h-100">
-              <div class="d-flex align-items-center mb-3">
-                <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill me-2">Python</span>
-                <span class="text-body-secondary small">Automation</span>
-              </div>
-              <h3 class="h5 fw-semibold text-body">complyscribe</h3>
-              <p class="text-body-secondary mb-0">A workflow automation tool for compliance content authoring with intelligent templates.</p>
-            </div>
-          </a>
-        </div>
-        <div class="col-lg-6">
-          <a href="/docs/projects/complytime-collector-components/" class="text-decoration-none">
-            <div class="project-card p-4 rounded-4 h-100">
-              <div class="d-flex align-items-center mb-3">
-                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill me-2">Go</span>
-                <span class="text-body-secondary small">Observability</span>
-              </div>
-              <h3 class="h5 fw-semibold text-body">collector-components</h3>
-              <p class="text-body-secondary mb-0">A policy-driven observability toolkit for automated compliance evidence collection.</p>
-            </div>
-          </a>
-        </div>
-        <div class="col-lg-6">
-          <a href="https://github.com/complytime/compliance-to-policy-go" class="text-decoration-none" target="_blank" rel="noopener">
-            <div class="project-card p-4 rounded-4 h-100">
-              <div class="d-flex align-items-center mb-3">
-                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill me-2">Go</span>
-                <span class="text-body-secondary small">Framework</span>
-              </div>
-              <h3 class="h5 fw-semibold text-body">compliance-to-policy-go</h3>
-              <p class="text-body-secondary mb-0">C2P framework bridging the gap between compliance requirements and policy administration.</p>
-            </div>
-          </a>
-        </div>
+        {{- end }}
       </div>
       <div class="text-center mt-4">
         <a href="/docs/projects/" class="btn btn-outline-primary rounded-pill px-4">View All Projects →</a>

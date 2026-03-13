@@ -1,5 +1,7 @@
 {{- $colors := dict "Go" "primary" "Python" "warning" "Shell" "secondary" "TypeScript" "info" -}}
-{{- $projects := sort site.Data.projects "stars" "desc" -}}
+{{- $projects := site.Data.projects | default slice -}}
+{{- if $projects }}
+{{- $projects = sort $projects "stars" "desc" -}}
 {{- $types := slice -}}
 {{- range $projects -}}
   {{- $types = $types | append .type -}}
@@ -25,4 +27,5 @@
   </div>
   {{- end }}
 </div>
+{{- end }}
 {{- end }}

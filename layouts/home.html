@@ -111,7 +111,9 @@
         </div>
       </div>
       {{- $colors := dict "Go" "primary" "Python" "warning" "Shell" "secondary" "TypeScript" "info" -}}
-      {{- $projects := sort site.Data.projects "stars" "desc" -}}
+      {{- $projects := site.Data.projects | default slice -}}
+      {{- if $projects }}
+      {{- $projects = sort $projects "stars" "desc" -}}
       <div class="row g-4">
         {{- range first 4 $projects }}
         <div class="col-lg-6">
@@ -129,6 +131,7 @@
         </div>
         {{- end }}
       </div>
+      {{- end }}
       <div class="text-center mt-4">
         <a href="/docs/projects/" class="btn btn-outline-primary rounded-pill px-4">View All Projects →</a>
       </div>

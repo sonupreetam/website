@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version-file: go.mod
 
@@ -51,8 +51,8 @@ jobs:
       - name: Run tests
         run: go test -race ./cmd/sync-content/...
 
-      - name: Sync content (dry-run)
-        run: go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json
+      - name: Sync content
+        run: go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json --write
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

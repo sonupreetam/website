@@ -1,0 +1,43 @@
+# sync-config.yaml — declarative file sync manifest
+#
+# This config layers precise file-level syncs on top of the org-wide scan.
+# Run with: go run ./cmd/sync-content --org complytime --config sync-config.yaml --write
+#
+# See specs/006-go-sync-tool/spec.md for full documentation.
+#
+# ─────────────────────────────────────────────────────────────────────
+# Hybrid mode:
+#
+# The org scan remains the default baseline — every repo in the org
+# gets a ProjectCard and an auto-generated project page from its
+# README. This config adds precision where needed:
+#
+#   skip_org_sync: true   → suppress the auto-generated project page
+#                           for this repo; only the config-declared
+#                           files are synced. The ProjectCard is still
+#                           built from API metadata.
+#
+#   skip_org_sync: false  → (default) the org scan runs normally AND
+#                           the config-declared files are synced as
+#                           additional content.
+# ─────────────────────────────────────────────────────────────────────
+
+defaults:
+  branch: main
+
+discovery:
+  ignore_repos:
+    - .github
+    - website
+    - community
+    - org-infra
+    - complytime-demos
+    - complytime-policies
+    - complytime-collector-distro
+  scan_paths:
+    - docs
+  ignore_files:
+    - CHANGELOG.md
+    - CODE_OF_CONDUCT.md
+
+sources: []

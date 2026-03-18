@@ -3,8 +3,9 @@
 // Command sync-content pulls documentation from upstream GitHub repositories
 // into the website's Hugo content tree. It operates in hybrid mode:
 //
-//  1. Org scan — lists all non-archived, non-fork repos in the GitHub org,
-//     fetches each README, and generates project pages and landing-page cards.
+//  1. Governance-driven discovery — reads the org's peribolos.yaml governance
+//     registry to determine which repos exist, then enriches each with GitHub
+//     API metadata. Generates project pages and landing-page cards.
 //  2. Config sync — reads sync-config.yaml and pulls specific files with
 //     transforms (frontmatter injection, link rewriting, badge stripping).
 //
@@ -17,7 +18,6 @@
 //	go run ./cmd/sync-content --org complytime --config sync-config.yaml          # dry-run
 //	go run ./cmd/sync-content --org complytime --config sync-config.yaml --write  # apply
 //	go run ./cmd/sync-content --config sync-config.yaml --repo complytime/complyctl --write  # single repo
-//	go run ./cmd/sync-content --org complytime --config sync-config.yaml --discover  # find new content
 //
 // Environment:
 //
@@ -50,7 +50,6 @@ func main() {
 	workers := flag.Int("workers", defaultWorkers, "Maximum concurrent repo processing goroutines")
 	configPath := flag.String("config", "", "Path to sync-config.yaml for declarative file syncs")
 	repoFilter := flag.String("repo", "", "Sync only this repo (e.g. complytime/complyctl)")
-	discover := flag.Bool("discover", false, "Scan org for new repos and untracked doc files, then exit")
 	lockPath := flag.String("lock", "", "Path to .content-lock.json for content approval gating")
 	updateLock := flag.Bool("update-lock", false, "Write updated upstream SHAs to the lockfile (requires --lock)")
 	flag.Parse()
@@ -131,16 +130,6 @@ func main() {
 	// scans HEAD to propose lockfile updates.
 	lockGate := lock != nil && len(lock.Repos) > 0 && !*updateLock
 
-	if *discover {
-		result, err := runDiscovery(ctx, gh, *org, cfg, excludeSet)
-		if err != nil {
-			slog.Error("discovery failed", "error", err)
-			os.Exit(1)
-		}
-		printDiscoveryReport(result)
-		return
-	}
-
 	configSources := make(map[string]Source)
 	if cfg != nil {
 		for _, src := range cfg.Sources {
@@ -154,11 +143,42 @@ func main() {
 	oldState := readExistingState(*output)
 	oldManifest := readManifest(*output)
 
-	slog.Info("fetching repositories", "org", *org)
-	repos, err := gh.listOrgRepos(ctx, *org)
+	slog.Info("fetching governance registry", "org", *org)
+	repoNames, err := gh.fetchPeribolosRepos(ctx, *org)
 	if err != nil {
-		slog.Error("error listing repos", "error", err)
+		slog.Error("error fetching peribolos.yaml", "error", err)
 		os.Exit(1)
+	}
+	slog.Info("found repos in governance registry", "count", len(repoNames))
+
+	peribolosSet := make(map[string]bool, len(repoNames))
+	for _, name := range repoNames {
+		peribolosSet[name] = true
+	}
+
+	if *repoFilter != "" {
+		parts := strings.SplitN(*repoFilter, "/", 2)
+		shortName := *repoFilter
+		if len(parts) == 2 {
+			shortName = parts[1]
+		}
+		if !peribolosSet[shortName] {
+			slog.Error("--repo target is not in the governance registry (peribolos.yaml)", "repo", *repoFilter)
+			os.Exit(1)
+		}
+	}
+
+	var repos []Repo
+	for _, name := range repoNames {
+		if *repoFilter != "" && !includeSet[name] {
+			continue
+		}
+		r, err := gh.getRepoMetadata(ctx, *org, name)
+		if err != nil {
+			slog.Warn("could not fetch repo metadata, skipping", "repo", name, "error", err)
+			continue
+		}
+		repos = append(repos, *r)
 	}
 	slog.Info("found repositories", "count", len(repos))
 
@@ -281,6 +301,20 @@ func main() {
 				continue
 			}
 
+			parts := strings.SplitN(src.Repo, "/", 2)
+			if len(parts) != 2 {
+				slog.Error("config source repo must be in owner/name format", "repo", src.Repo)
+				result.addError()
+				continue
+			}
+			shortName := parts[1]
+
+			if !peribolosSet[shortName] {
+				slog.Error("config source repo is not in the governance registry (peribolos.yaml), skipping", "repo", src.Repo)
+				result.addError()
+				continue
+			}
+
 			if lockGate && lock.sha(src.Repo) == "" {
 				slog.Info("config-only source not in lockfile, skipping (unapproved)", "repo", src.Repo)
 				result.mu.Lock()
@@ -289,42 +323,32 @@ func main() {
 				continue
 			}
 
-			slog.Info("processing config-only source (not in org)", "repo", src.Repo)
+			slog.Info("processing config-only source", "repo", src.Repo)
 
 			cfgRef := ""
 			if lockGate {
-				parts := strings.SplitN(src.Repo, "/", 2)
-				if len(parts) == 2 {
-					sha, err := gh.getBranchSHA(ctx, parts[0], parts[1], src.Branch)
-					if err == nil {
-						upstreamSHAs.Store(src.Repo, sha)
-						locked := lock.sha(src.Repo)
-						if locked != "" && locked != sha {
-							cfgRef = locked
-						}
+				sha, err := gh.getBranchSHA(ctx, parts[0], parts[1], src.Branch)
+				if err == nil {
+					upstreamSHAs.Store(src.Repo, sha)
+					locked := lock.sha(src.Repo)
+					if locked != "" && locked != sha {
+						cfgRef = locked
 					}
 				}
 			} else if *updateLock {
-				parts := strings.SplitN(src.Repo, "/", 2)
-				if len(parts) == 2 {
-					sha, err := gh.getBranchSHA(ctx, parts[0], parts[1], src.Branch)
-					if err == nil {
-						upstreamSHAs.Store(src.Repo, sha)
-					}
+				sha, err := gh.getBranchSHA(ctx, parts[0], parts[1], src.Branch)
+				if err == nil {
+					upstreamSHAs.Store(src.Repo, sha)
 				}
 			}
 
 			syncConfigSource(ctx, gh, src, cfg.Defaults, *output, *write, &result, cfgRef)
 
-			parts := strings.SplitN(src.Repo, "/", 2)
-			if len(parts) == 2 {
-				shortName := parts[1]
-				prefix := filepath.Join("content", "docs", "projects", shortName) + string(filepath.Separator)
-				for _, f := range src.Files {
-					if strings.HasPrefix(f.Dest, prefix) {
-						newState[shortName] = true
-						break
-					}
+			prefix := filepath.Join("content", "docs", "projects", shortName) + string(filepath.Separator)
+			for _, f := range src.Files {
+				if strings.HasPrefix(f.Dest, prefix) {
+					newState[shortName] = true
+					break
 				}
 			}
 		}

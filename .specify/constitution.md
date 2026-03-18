@@ -12,11 +12,11 @@ All custom tooling (content sync, CLI utilities, build helpers) MUST be written 
 
 ### III. Single Source of Truth
 
-Every piece of project content on the site MUST trace back to a canonical source — a repo README, a `docs/` directory, or the GitHub API. Automated tooling is the sole mechanism for pulling upstream content. Manual content duplication is prohibited. If the source changes, the site updates on the next sync.
+Every piece of project content on the site MUST trace back to a canonical source — a repo README, a `docs/` directory, or the GitHub API. The org's governance registry (`peribolos.yaml` in the `.github` repo) is the authoritative source for which repositories exist. Automated tooling is the sole mechanism for pulling upstream content. Manual content duplication is prohibited. If the source changes, the site updates on the next sync.
 
-### IV. Org-Scan with Config Overlay
+### IV. Governance-Driven Discovery with Config Overlay
 
-The sync tool auto-discovers all repos in the GitHub org and generates project pages and card data. For repos requiring precise control (frontmatter, transforms, specific files), a declarative config overlay adds file-level syncs on top. The org scan is the baseline; config is the precision layer.
+The sync tool derives the set of eligible repositories from the org's governance registry rather than ad-hoc API discovery. Per-repo metadata (stars, language, topics) is fetched from the GitHub API. For repos requiring precise control (frontmatter, transforms, specific files), a declarative config overlay adds file-level syncs on top. The governance registry is the baseline; config is the precision layer.
 
 ### V. No Runtime JavaScript Frameworks
 
@@ -92,4 +92,4 @@ This constitution supersedes all other practices for the complytime-website repo
 
 All PRs and reviews MUST verify compliance with these principles.
 
-**Version**: 1.4.0 | **Ratified**: 2026-03-11 | **Last Amended**: 2026-03-16
+**Version**: 1.5.0 | **Ratified**: 2026-03-11 | **Last Amended**: 2026-03-16

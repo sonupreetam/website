@@ -11,14 +11,16 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
 	githubAPI        = "https://api.github.com"
-	pageSize         = 100
 	maxRetries       = 3
 	maxResponseBytes = 10 << 20 // 10 MB safety ceiling for API response bodies
 	maxDirDepth      = 10
@@ -165,21 +167,47 @@ func escapePathSegments(path string) string {
 	return strings.Join(segs, "/")
 }
 
-func (c *apiClient) listOrgRepos(ctx context.Context, org string) ([]Repo, error) {
-	var all []Repo
-	for page := 1; ; page++ {
-		apiURL := fmt.Sprintf("%s/orgs/%s/repos?per_page=%d&page=%d&type=public",
-			githubAPI, url.PathEscape(org), pageSize, page)
-		var batch []Repo
-		if err := c.getJSON(ctx, apiURL, &batch); err != nil {
-			return nil, err
-		}
-		all = append(all, batch...)
-		if len(batch) < pageSize {
-			break
-		}
+// fetchPeribolosRepos fetches peribolos.yaml from the org's .github repo and
+// returns the list of repo names declared under orgs.<org>.repos.
+func (c *apiClient) fetchPeribolosRepos(ctx context.Context, org string) ([]string, error) {
+	apiURL := fmt.Sprintf("%s/repos/%s/.github/contents/peribolos.yaml",
+		githubAPI, url.PathEscape(org))
+	var f FileResponse
+	if err := c.getJSON(ctx, apiURL, &f); err != nil {
+		return nil, fmt.Errorf("fetching peribolos.yaml from %s/.github: %w", org, err)
 	}
-	return all, nil
+	content, err := decodeContent(f)
+	if err != nil {
+		return nil, fmt.Errorf("decoding peribolos.yaml: %w", err)
+	}
+
+	var pc PeribolosConfig
+	if err := yaml.Unmarshal([]byte(content), &pc); err != nil {
+		return nil, fmt.Errorf("parsing peribolos.yaml: %w", err)
+	}
+
+	orgData, ok := pc.Orgs[org]
+	if !ok {
+		return nil, fmt.Errorf("peribolos.yaml has no entry for org %q", org)
+	}
+
+	names := make([]string, 0, len(orgData.Repos))
+	for name := range orgData.Repos {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// getRepoMetadata fetches full metadata for a single repo from the GitHub API.
+func (c *apiClient) getRepoMetadata(ctx context.Context, owner, name string) (*Repo, error) {
+	apiURL := fmt.Sprintf("%s/repos/%s/%s",
+		githubAPI, url.PathEscape(owner), url.PathEscape(name))
+	var repo Repo
+	if err := c.getJSON(ctx, apiURL, &repo); err != nil {
+		return nil, err
+	}
+	return &repo, nil
 }
 
 func (c *apiClient) getREADME(ctx context.Context, owner, repo, ref string) (string, string, error) {

@@ -21,34 +21,10 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Discover new repos and untracked docs
-        id: discover
-        run: go run ./cmd/sync-content --org complytime --config sync-config.yaml --discover || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Check for upstream changes
         run: go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json --update-lock --summary sync-summary.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Append discovery report to summary
-        run: |
-          if [ "${{ steps.discover.outputs.has_discoveries }}" = "true" ]; then
-            echo "" >> sync-summary.md
-            echo "## Discovery Report" >> sync-summary.md
-            echo "" >> sync-summary.md
-            echo "The following new repos or doc files were found in the org but are not yet in \`sync-config.yaml\` sources:" >> sync-summary.md
-            echo "" >> sync-summary.md
-            if [ "${{ steps.discover.outputs.new_repos }}" != "0" ]; then
-              echo "**New repos:** ${{ steps.discover.outputs.new_repos }}" >> sync-summary.md
-            fi
-            if [ "${{ steps.discover.outputs.new_files }}" != "0" ]; then
-              echo "**New doc files:** ${{ steps.discover.outputs.new_files }}" >> sync-summary.md
-            fi
-            echo "" >> sync-summary.md
-            echo "Run \`go run ./cmd/sync-content --discover\` locally for full details." >> sync-summary.md
-          fi
 
       - name: Create or update PR
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0

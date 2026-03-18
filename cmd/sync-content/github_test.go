@@ -191,6 +191,113 @@ func TestListDirMD_WithRef(t *testing.T) {
 	}
 }
 
+func TestFetchPeribolosRepos(t *testing.T) {
+	peribolosYAML := `orgs:
+  myorg:
+    repos:
+      alpha:
+        description: "first repo"
+      beta:
+        description: "second repo"
+      gamma:
+        description: "third repo"
+`
+
+	t.Run("success", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/repos/myorg/.github/contents/peribolos.yaml", func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(FileResponse{
+				Content:  b64(peribolosYAML),
+				Encoding: "base64",
+			})
+		})
+
+		server := httptest.NewServer(mux)
+		defer server.Close()
+
+		gh := newTestClient(server.URL)
+		names, err := gh.fetchPeribolosRepos(context.Background(), "myorg")
+		if err != nil {
+			t.Fatalf("fetchPeribolosRepos: %v", err)
+		}
+		want := []string{"alpha", "beta", "gamma"}
+		if len(names) != len(want) {
+			t.Fatalf("got %d repos, want %d: %v", len(names), len(want), names)
+		}
+		for i, name := range names {
+			if name != want[i] {
+				t.Errorf("repo[%d] = %q, want %q", i, name, want[i])
+			}
+		}
+	})
+
+	t.Run("missing org in peribolos", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/repos/otherorg/.github/contents/peribolos.yaml", func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(FileResponse{
+				Content:  b64(peribolosYAML),
+				Encoding: "base64",
+			})
+		})
+
+		server := httptest.NewServer(mux)
+		defer server.Close()
+
+		gh := newTestClient(server.URL)
+		_, err := gh.fetchPeribolosRepos(context.Background(), "otherorg")
+		if err == nil {
+			t.Fatal("expected error for missing org")
+		}
+	})
+
+	t.Run("peribolos.yaml not found", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/repos/noorg/.github/contents/peribolos.yaml", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message":"Not Found"}`))
+		})
+
+		server := httptest.NewServer(mux)
+		defer server.Close()
+
+		gh := newTestClient(server.URL)
+		_, err := gh.fetchPeribolosRepos(context.Background(), "noorg")
+		if err == nil {
+			t.Fatal("expected error when peribolos.yaml is missing")
+		}
+	})
+}
+
+func TestGetRepoMetadata(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/org/myrepo", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(Repo{
+			Name:        "myrepo",
+			FullName:    "org/myrepo",
+			Description: "A test repo",
+			HTMLURL:     "https://github.com/org/myrepo",
+		})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	gh := newTestClient(server.URL)
+	repo, err := gh.getRepoMetadata(context.Background(), "org", "myrepo")
+	if err != nil {
+		t.Fatalf("getRepoMetadata: %v", err)
+	}
+	if repo.Name != "myrepo" {
+		t.Errorf("name = %q, want %q", repo.Name, "myrepo")
+	}
+	if repo.FullName != "org/myrepo" {
+		t.Errorf("full_name = %q, want %q", repo.FullName, "org/myrepo")
+	}
+	if repo.Description != "A test repo" {
+		t.Errorf("description = %q, want %q", repo.Description, "A test repo")
+	}
+}
+
 func TestContextCancellationDuringRetry(t *testing.T) {
 	callCount := 0
 	mux := http.NewServeMux()

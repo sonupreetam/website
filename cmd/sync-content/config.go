@@ -9,6 +9,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// PeribolosConfig is the top-level structure parsed from peribolos.yaml
+// in the org's .github repo.
+type PeribolosConfig struct {
+	Orgs map[string]PeribolosOrg `yaml:"orgs"`
+}
+
+// PeribolosOrg represents an organization entry in peribolos.yaml.
+type PeribolosOrg struct {
+	Repos map[string]PeribolosRepo `yaml:"repos"`
+}
+
+// PeribolosRepo holds per-repo metadata from peribolos.yaml.
+type PeribolosRepo struct {
+	Description   string `yaml:"description"`
+	DefaultBranch string `yaml:"default_branch"`
+}
+
 // SyncConfig is the top-level structure parsed from sync-config.yaml.
 type SyncConfig struct {
 	Defaults  Defaults  `yaml:"defaults"`

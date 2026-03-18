@@ -4,14 +4,12 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   validate:
-    if: github.repository_owner == 'sonupreetam'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

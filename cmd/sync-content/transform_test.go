@@ -105,6 +105,54 @@ func TestStripBadges(t *testing.T) {
 	})
 }
 
+func TestStripLeadingH1(t *testing.T) {
+	t.Run("H1 removed", func(t *testing.T) {
+		input := "# Plugin Guide\n\nBody text here."
+		result := stripLeadingH1(input)
+		if strings.Contains(result, "# Plugin Guide") {
+			t.Errorf("leading H1 should be removed, got %q", result)
+		}
+		if !strings.Contains(result, "Body text here.") {
+			t.Error("body text should be preserved")
+		}
+	})
+
+	t.Run("H2 not removed", func(t *testing.T) {
+		input := "## Section\n\nBody"
+		result := stripLeadingH1(input)
+		if result != input {
+			t.Errorf("H2 should not be stripped\ngot:  %q\nwant: %q", result, input)
+		}
+	})
+
+	t.Run("no heading unchanged", func(t *testing.T) {
+		input := "Body text without heading"
+		result := stripLeadingH1(input)
+		if result != input {
+			t.Errorf("content without heading should be unchanged\ngot:  %q\nwant: %q", result, input)
+		}
+	})
+
+	t.Run("H1 only", func(t *testing.T) {
+		input := "# Title Only"
+		result := stripLeadingH1(input)
+		if result != "" {
+			t.Errorf("H1-only content should return empty string, got %q", result)
+		}
+	})
+
+	t.Run("blank lines after H1 trimmed", func(t *testing.T) {
+		input := "# Title\n\n\n\nBody"
+		result := stripLeadingH1(input)
+		if strings.HasPrefix(result, "\n") {
+			t.Errorf("leading blank lines after H1 should be trimmed, got %q", result)
+		}
+		if !strings.Contains(result, "Body") {
+			t.Error("body should be preserved")
+		}
+	})
+}
+
 func TestShiftHeadings(t *testing.T) {
 	t.Run("H1 becomes H2", func(t *testing.T) {
 		input := "# Title\n\nBody text"
@@ -160,6 +208,75 @@ func TestShiftHeadings(t *testing.T) {
 		result := shiftHeadings(input)
 		if !strings.Contains(result, "Paragraph one.") || !strings.Contains(result, "Paragraph two.") {
 			t.Error("body text should be preserved")
+		}
+	})
+}
+
+func TestTitleCaseHeadings(t *testing.T) {
+	t.Run("lowercase heading becomes Title Case", func(t *testing.T) {
+		input := "## getting started\n\nBody text"
+		result := titleCaseHeadings(input)
+		if !strings.Contains(result, "## Getting Started") {
+			t.Errorf("heading should be Title Case, got %q", result)
+		}
+	})
+
+	t.Run("acronyms are preserved", func(t *testing.T) {
+		input := "## api reference\n\nBody"
+		result := titleCaseHeadings(input)
+		if !strings.Contains(result, "## API Reference") {
+			t.Errorf("API should be uppercased, got %q", result)
+		}
+	})
+
+	t.Run("mixed case normalized", func(t *testing.T) {
+		input := "### using the CLI tool\n\nBody"
+		result := titleCaseHeadings(input)
+		if !strings.Contains(result, "### Using The CLI Tool") {
+			t.Errorf("heading should be Title Case with acronyms, got %q", result)
+		}
+	})
+
+	t.Run("multiple headings normalized", func(t *testing.T) {
+		input := "## getting started\n\nParagraph.\n\n## api reference\n\nMore text."
+		result := titleCaseHeadings(input)
+		if !strings.Contains(result, "## Getting Started") {
+			t.Errorf("first heading should be Title Case, got %q", result)
+		}
+		if !strings.Contains(result, "## API Reference") {
+			t.Errorf("second heading should have API uppercase, got %q", result)
+		}
+	})
+
+	t.Run("already correct casing unchanged", func(t *testing.T) {
+		input := "## Quick Start\n\nBody"
+		result := titleCaseHeadings(input)
+		if !strings.Contains(result, "## Quick Start") {
+			t.Errorf("already correct heading should stay the same, got %q", result)
+		}
+	})
+
+	t.Run("body text not affected", func(t *testing.T) {
+		input := "## Title\n\nsome lowercase body text here."
+		result := titleCaseHeadings(input)
+		if !strings.Contains(result, "some lowercase body text here.") {
+			t.Errorf("body text should not be changed, got %q", result)
+		}
+	})
+
+	t.Run("no headings unchanged", func(t *testing.T) {
+		input := "Just some body text without headings."
+		result := titleCaseHeadings(input)
+		if result != input {
+			t.Errorf("content without headings should be unchanged\ngot:  %q\nwant: %q", result, input)
+		}
+	})
+
+	t.Run("H6 heading normalized", func(t *testing.T) {
+		input := "###### deep heading\n\nBody"
+		result := titleCaseHeadings(input)
+		if !strings.Contains(result, "###### Deep Heading") {
+			t.Errorf("H6 heading should be Title Case, got %q", result)
 		}
 	})
 }

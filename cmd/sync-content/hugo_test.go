@@ -44,6 +44,9 @@ func TestTitleFromFilename(t *testing.T) {
 		{"cli-usage.md", "CLI Usage"},
 		{"rest-api.md", "REST API"},
 		{"getting-started", "Getting Started"},
+		{"CONTRIBUTING.md", "Contributing"},
+		{"PLUGIN_GUIDE.md", "Plugin Guide"},
+		{"RELEASE-PROCESS.md", "Release Process"},
 	}
 
 	for _, tc := range cases {
@@ -64,9 +67,12 @@ func TestSmartTitle(t *testing.T) {
 	}{
 		{"plain words", []string{"hello", "world"}, "Hello World"},
 		{"acronym api", []string{"my", "api"}, "My API"},
-		{"mixed case preserved", []string{"OAuth", "setup"}, "OAuth Setup"},
+		{"mixed case via acronym map", []string{"OAuth", "setup"}, "OAuth Setup"},
 		{"already uppercase acronym", []string{"CLI"}, "CLI"},
 		{"h6 cap", []string{"some", "uuid", "generator"}, "Some UUID Generator"},
+		{"all caps normalised", []string{"CONTRIBUTING"}, "Contributing"},
+		{"all caps multi-word", []string{"PLUGIN", "GUIDE"}, "Plugin Guide"},
+		{"mixed all-caps and acronym", []string{"OSCAL", "QUICK", "START"}, "OSCAL Quick Start"},
 	}
 
 	for _, tc := range cases {

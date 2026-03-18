@@ -60,8 +60,29 @@ func isAbsoluteURL(href string) bool {
 		strings.HasPrefix(href, "mailto:")
 }
 
+// stripLeadingH1 removes the first H1 heading from the content. The title is
+// already captured in frontmatter, so the leading H1 in the body is redundant.
+// Only strips a line starting with exactly "# " (not "## " or deeper).
+func stripLeadingH1(content string) string {
+	lines := strings.SplitN(content, "\n", 2)
+	if len(lines) == 0 {
+		return content
+	}
+	first := strings.TrimSpace(lines[0])
+	if strings.HasPrefix(first, "# ") && !strings.HasPrefix(first, "## ") {
+		if len(lines) > 1 {
+			return strings.TrimLeft(lines[1], "\n")
+		}
+		return ""
+	}
+	return content
+}
+
 // headingRe matches Markdown ATX headings (# through ######) at the start of a line.
 var headingRe = regexp.MustCompile(`(?m)^(#{1,6})\s`)
+
+// headingFullRe captures the hashes and text of a Markdown ATX heading.
+var headingFullRe = regexp.MustCompile(`(?m)^(#{1,6})\s+(.+)$`)
 
 // shiftHeadings bumps every Markdown heading down one level (H1->H2, H2->H3, ...)
 // so that Hugo's page title remains the only H1. Headings already at H6 stay at H6.
@@ -72,6 +93,21 @@ func shiftHeadings(content string) string {
 			return match
 		}
 		return "#" + match
+	})
+}
+
+// titleCaseHeadings applies smartTitle to every Markdown heading's text,
+// normalising casing for both the rendered page and Hugo's TableOfContents.
+func titleCaseHeadings(content string) string {
+	return headingFullRe.ReplaceAllStringFunc(content, func(match string) string {
+		subs := headingFullRe.FindStringSubmatch(match)
+		if len(subs) < 3 {
+			return match
+		}
+		hashes := subs[1]
+		text := strings.TrimSpace(subs[2])
+		words := strings.Fields(text)
+		return hashes + " " + smartTitle(words)
 	})
 }
 

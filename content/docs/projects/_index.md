@@ -8,6 +8,12 @@ draft: false
 images: []
 weight: 200
 toc: true
+cascade:
+  - sidebar:
+      collapsed: true
+    _target:
+      kind: section
+      path: "{/docs/projects/*}"
 ---
 
 ## Core Projects

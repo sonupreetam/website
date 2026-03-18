@@ -97,11 +97,8 @@ func TestProcessRepo(t *testing.T) {
 	if !strings.Contains(overview, "This is a test README.") {
 		t.Error("overview page should contain README body")
 	}
-	if strings.Contains(overview, "\n# test-repo") || strings.HasPrefix(overview, "# test-repo") {
-		t.Error("H1 heading should be shifted to H2 in overview")
-	}
-	if !strings.Contains(overview, "## test-repo") {
-		t.Error("original H1 should appear as H2 after heading shift")
+	if strings.Contains(overview, "# test-repo") || strings.Contains(overview, "## Test-repo") {
+		t.Error("leading H1 should be stripped — title is already in frontmatter")
 	}
 	if !strings.Contains(overview, `title: "Overview"`) {
 		t.Error("overview page should have title 'Overview'")
@@ -293,11 +290,8 @@ func TestSyncConfigSource(t *testing.T) {
 		if !strings.Contains(content, "https://github.com/org/complyctl/blob/main/docs/guide.md") {
 			t.Error("relative link should become absolute GitHub URL")
 		}
-		if strings.Contains(content, "\n# complyctl") {
-			t.Error("H1 should be shifted to H2 by shiftHeadings")
-		}
-		if !strings.Contains(content, "## complyctl") {
-			t.Error("original H1 should appear as H2 after heading shift")
+		if strings.Contains(content, "# complyctl") || strings.Contains(content, "## Complyctl") {
+			t.Error("leading H1 should be stripped — title is already in frontmatter")
 		}
 	})
 
@@ -515,11 +509,8 @@ func TestSyncRepoDocPages(t *testing.T) {
 		if !strings.Contains(content, "<!-- synced from "+tc.provSrc) {
 			t.Errorf("%s: missing provenance comment for %s:\n%s", tc.relPath, tc.provSrc, content)
 		}
-		if strings.Contains(content, "\n# "+tc.title+"\n") {
-			t.Errorf("%s: H1 heading should be shifted to H2", tc.relPath)
-		}
-		if !strings.Contains(content, "## "+tc.title) {
-			t.Errorf("%s: original H1 should appear as H2 after heading shift", tc.relPath)
+		if strings.Contains(content, "# "+tc.title) {
+			t.Errorf("%s: leading H1 should be stripped — title is already in frontmatter", tc.relPath)
 		}
 	}
 

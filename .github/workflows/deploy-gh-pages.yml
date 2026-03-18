@@ -63,7 +63,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
-        run: hugo --minify --gc --baseURL "https://complytime.dev/"
+        run: hugo --minify --gc --baseURL "https://sonupreetam.github.io/website/"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b

@@ -44,7 +44,7 @@ mainSections = ["docs"]
   sectionNav = ["docs"]
   toTopButton = true
   breadcrumbTrail = true
-  headlineHash = true
+  headlineHash = false
   scrollSpy = true
 
   # Multilingual

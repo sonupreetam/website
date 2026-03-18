@@ -7,7 +7,7 @@
 
 The ComplyTime website (`complytime.dev`) documents a growing ecosystem of open-source compliance tools hosted across multiple repositories in the `complytime` GitHub organization. Before this feature, project documentation was manually copied into the site — error-prone, inconsistent, and unable to scale as new repos were added.
 
-This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~2160 lines across 11 source files in `package main`) that auto-discovers all org repos via the GitHub REST API, fetches their README content and metadata, applies Markdown transforms, and generates Hugo-compatible pages and landing page card data. A declarative config overlay (`sync-config.yaml`) provides precision control for repos needing custom documentation layouts.
+This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~2000 lines across 10 source files in `package main`) that derives the set of eligible repositories from the org's governance registry (`peribolos.yaml` in the `.github` repo), fetches their README content and per-repo metadata via the GitHub REST API, applies Markdown transforms, and generates Hugo-compatible pages and landing page card data. A declarative config overlay (`sync-config.yaml`) provides precision control for repos needing custom documentation layouts.
 
 **Dependencies**: Go 1.25+, `gopkg.in/yaml.v3` (sole third-party Go dep), Hugo 0.155.1 extended, Node.js 22.
 
@@ -15,11 +15,11 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~21
 
 ### In Scope
 
-> IDs are grouped by domain (001–018: core, 030–032: detection/tests, 040–041: site integration, 050–052: operations, 060–065: hardening). Gaps between groups are intentional.
+> IDs are grouped by domain (001–018: core, 030–031: detection, 040–041: site integration, 070: content approval). Gaps between groups are intentional.
 
 | ID | Capability |
 |----|-----------|
-| IS-001 | Paginated org listing via GitHub REST API |
+| IS-001 | Governance-driven repo discovery: fetch `peribolos.yaml` from `{org}/.github` repo, parse `orgs.{org}.repos` map as authoritative repo list, enrich with GitHub API metadata (stars, language, topics) per repo |
 | IS-002 | README fetch with base64 decoding and SHA tracking |
 | IS-003 | Per-repo page generation: section index (`_index.md`, frontmatter only) + overview page (`overview.md`, README content) |
 | IS-004 | Landing page card generation (`data/projects.json`) with type derivation from topics |
@@ -28,32 +28,16 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~21
 | IS-007 | Dry-run by default; `--write` flag required for disk I/O |
 | IS-008 | Markdown transforms: `stripLeadingH1`, `stripBadges`, `rewriteRelativeLinks` |
 | IS-009 | Repo filtering: exclude archived repos, forks, `--include`/`--exclude` lists |
-| IS-010 | `.gitignore` patterns for generated content (`content/docs/projects/*/`, `data/projects.json`) |
-| IS-011 | Hugo section scaffolding: hand-maintained `content/docs/projects/_index.md` preserved by gitignore glob |
 | IS-012 | Sync manifest (`.sync-manifest.json`) for orphan file tracking |
-| IS-013 | Byte-level dedup: `writeFileSafe` skips writing identical files |
 | IS-014 | Doc page auto-sync from `discovery.scan_paths` directories |
-| IS-015 | Discovery mode (`--discover`): scan org for untracked repos and doc files |
-| IS-016 | Single-repo mode (`--repo`): sync only one repository |
+| IS-016 | Single-repo mode (`--repo`): sync only one repository (validated against peribolos) |
 | IS-017 | Summary file generation (`--summary report.md`) |
 | IS-018 | GitHub CI outputs: `GITHUB_OUTPUT` variables and `GITHUB_STEP_SUMMARY` |
 | IS-030 | Two-tier SHA-based change detection (branch SHA + README SHA) |
 | IS-031 | Stale content cleanup via manifest diff |
-| IS-032 | Unit and integration tests (12 `*_test.go` files, 89 test functions) |
 | IS-040 | Dynamic landing page project cards from `data/projects.json` |
 | IS-041 | Docs sidebar with collapsed repo-level sections via Hugo cascade |
-| IS-050 | Hand-maintained project docs removed from git tracking |
-| IS-051 | CI deploy workflow with sync step, `--lock`, and `workflow_dispatch` |
-| IS-052 | Constitution transitional provisions update *(pending — post-merge)* |
-| IS-060 | Path traversal prevention for config `dest` and API-sourced paths |
-| IS-061 | Context-aware retry sleep (respects context cancellation during backoff) |
-| IS-062 | Complete stale cleanup (remove all generated files via `os.RemoveAll`, not just `_index.md`) |
-| IS-063 | Bounded error response body reads (4KB limit via `io.LimitReader`) |
-| IS-064 | URL path escaping for all API URL construction (`url.PathEscape`) |
-| IS-065 | Unify `--exclude` flag default with config `discovery.ignore_repos` |
 | IS-070 | Content lockfile (`.content-lock.json`) for SHA-pinned content approval |
-| IS-071 | Weekly content sync check workflow (`sync-content-check.yml`) |
-| IS-072 | `ref` parameter threading for GitHub API calls |
 
 ### Out of Scope
 
@@ -62,6 +46,17 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~21
 - GitHub Enterprise / custom API URL
 - Log level control (`--verbose` / `--quiet`)
 - Config schema versioning
+
+### Edge Cases (Peribolos Integration)
+
+| Case | Expected Behavior |
+|------|-------------------|
+| Repo in peribolos but archived on GitHub | Excluded by existing archived-repo filter (fetched from API metadata) |
+| Repo in peribolos but deleted on GitHub | API metadata fetch returns 404; log warning, skip repo, continue |
+| Repo on GitHub but NOT in peribolos | Excluded — governance registry is authoritative |
+| `.github` repo missing or peribolos.yaml absent | Fatal error — log and exit non-zero |
+| `--org` flag value doesn't match peribolos `orgs` key | Fatal error — log mismatch and exit non-zero |
+| `--repo` flag used (single-repo mode) | Validated against peribolos — repo must exist in governance registry; metadata fetched from API |
 
 ## User Stories
 
@@ -74,15 +69,17 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~21
 - **US1-SC2**: Running with `--write` generates: (a) section indexes at `content/docs/projects/{repo}/_index.md` (frontmatter only), (b) overview pages at `content/docs/projects/{repo}/overview.md` (README content), (c) doc sub-pages from `discovery.scan_paths`, (d) `data/projects.json`, (e) `.sync-manifest.json`.
 - **US1-SC3**: `hugo server` after sync produces zero build errors. Pages accessible at `/docs/projects/`.
 
-### US2: Org-Wide Auto-Discovery (Priority: P1)
+### US2: Governance-Driven Discovery (Priority: P1)
 
-**As a** site maintainer, **I want** new repos added to the org to automatically appear on the website, **so that** no config changes or PRs are needed beyond the regular content sync review (US7).
+**As a** site maintainer, **I want** repos declared in the org's governance registry to automatically appear on the website, **so that** the site reflects the org's official repo list without ad-hoc API discovery.
 
 **Acceptance Scenarios**:
-- **US2-SC1**: Repos NOT in `sync-config.yaml` produce: (a) `_index.md` with frontmatter (`title`, `description`, `params.language`, `params.stars`, `params.source_sha`, `params.readme_sha`, `params.seo.*`) and no body, (b) `overview.md` with transformed README content.
-- **US2-SC2**: `data/projects.json` contains a `ProjectCard` for every eligible repo (non-archived, non-forked), sorted alphabetically, with fields `name`, `language`, `type`, `description`, `url`, `repo`, `stars`.
+- **US2-SC1**: Repos listed in `peribolos.yaml` (and NOT in `sync-config.yaml`) produce: (a) `_index.md` with frontmatter (`title`, `description`, `params.language`, `params.stars`, `params.source_sha`, `params.readme_sha`, `params.seo.*`) and no body, (b) `overview.md` with transformed README content.
+- **US2-SC2**: `data/projects.json` contains a `ProjectCard` for every eligible repo from peribolos (non-archived, non-forked), sorted alphabetically, with fields `name`, `language`, `type`, `description`, `url`, `repo`, `stars`.
+- **US2-SC3**: Repos present on GitHub but NOT in `peribolos.yaml` are excluded from sync (governance registry is authoritative).
+- **US2-SC4**: If `peribolos.yaml` cannot be fetched (e.g., `.github` repo missing or network error), the tool logs an error and exits non-zero rather than silently falling back to API listing.
 
-> **Note**: When `--lock` is active (production deploys), new repos not yet in `.content-lock.json` are skipped until the next content sync check PR (US7) adds them to the lockfile and is merged. Auto-discovery still detects them; the approval gate controls when they reach production.
+> **Note**: When `--lock` is active (production deploys), new repos not yet in `.content-lock.json` are skipped until the next content sync check PR (US7) adds them to the lockfile and is merged. The approval gate controls when they reach production.
 
 ### US3: Config-Driven Precision Sync (Priority: P1)
 
@@ -131,7 +128,7 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~21
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--org` | `complytime` | GitHub organization to scan |
+| `--org` | `complytime` | GitHub organization — used to locate `peribolos.yaml` in `{org}/.github` and as the `orgs` key for repo extraction |
 | `--token` | `$GITHUB_TOKEN` | GitHub API token (or set env var) |
 | `--config` | (none) | Path to `sync-config.yaml` for config-driven file syncs |
 | `--write` | `false` | Required to write files to disk (default: dry-run) |
@@ -140,8 +137,7 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, ~21
 | `--timeout` | `3m` | Overall timeout for all API operations |
 | `--include` | (all) | Comma-separated repo allowlist |
 | `--exclude` | (see config) | Comma-separated repo names to skip |
-| `--repo` | (none) | Sync only this repo (e.g., `complytime/complyctl`). Overrides `--include` |
-| `--discover` | `false` | Scan org for new repos and untracked doc files, then exit with report |
+| `--repo` | (none) | Sync only this repo (e.g., `complytime/complyctl`); validated against peribolos |
 | `--summary` | (none) | Write markdown change summary to this file |
 | `--lock` | (none) | Path to `.content-lock.json` for content approval gating |
 | `--update-lock` | `false` | Write current upstream SHAs to the lockfile (requires `--lock`) |
@@ -189,8 +185,7 @@ data/
 The following capabilities were ported from the test-website reference implementation and are functional:
 
 - **Two-tier SHA-based change detection**: Branch SHA (`params.source_sha`) for fast pre-filtering; README SHA (`params.readme_sha`) for content-level accuracy
-- **Discovery mode** (`--discover`): Scans org for repos and doc files not tracked in config
-- **Single-repo filtering** (`--repo`): Process one repo without full org scan
+- **Single-repo filtering** (`--repo`): Process one repo (validated against peribolos governance registry)
 - **Doc page auto-sync**: Syncs Markdown files from `discovery.scan_paths` directories
 - **Context cancellation**: `--timeout` flag with context propagation; retry sleep respects cancellation (IS-061)
 - **CI integration outputs**: Writes `GITHUB_OUTPUT` variables and `GITHUB_STEP_SUMMARY` for GitHub Actions; deploys proceed even with non-fatal warnings

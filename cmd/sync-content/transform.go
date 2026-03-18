@@ -60,25 +60,19 @@ func isAbsoluteURL(href string) bool {
 		strings.HasPrefix(href, "mailto:")
 }
 
-// stripLeadingH1 removes the first line of a README if it's an H1 heading
-// that matches the repo name, preventing duplicate titles on Hugo pages.
-func stripLeadingH1(readme, repoName string) string {
-	lines := strings.SplitN(readme, "\n", 2)
-	if len(lines) == 0 {
-		return readme
-	}
-	firstLine := strings.TrimSpace(lines[0])
-	if !strings.HasPrefix(firstLine, "# ") {
-		return readme
-	}
-	heading := strings.TrimSpace(strings.TrimPrefix(firstLine, "# "))
-	if !strings.EqualFold(heading, repoName) {
-		return readme
-	}
-	if len(lines) > 1 {
-		return strings.TrimLeft(lines[1], "\n")
-	}
-	return ""
+// headingRe matches Markdown ATX headings (# through ######) at the start of a line.
+var headingRe = regexp.MustCompile(`(?m)^(#{1,6})\s`)
+
+// shiftHeadings bumps every Markdown heading down one level (H1->H2, H2->H3, ...)
+// so that Hugo's page title remains the only H1. Headings already at H6 stay at H6.
+func shiftHeadings(content string) string {
+	return headingRe.ReplaceAllStringFunc(content, func(match string) string {
+		hashes := strings.TrimRight(match, " \t")
+		if len(hashes) >= 6 {
+			return match
+		}
+		return "#" + match
+	})
 }
 
 // stripBadges removes Markdown badge lines from the start of content.

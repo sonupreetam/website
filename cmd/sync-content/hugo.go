@@ -46,10 +46,12 @@ func deriveProjectType(r Repo) string {
 // section heading as a collapsible toggle with child pages listed underneath.
 func buildSectionIndex(repo Repo, sha, readmeSHA string) string {
 	lang := languageOrDefault(repo.Language)
+	title := formatRepoTitle(repo.Name)
 
 	var b strings.Builder
 	b.WriteString("---\n")
-	fmt.Fprintf(&b, "title: %q\n", repo.Name)
+	fmt.Fprintf(&b, "title: %q\n", title)
+	fmt.Fprintf(&b, "linkTitle: %q\n", repo.Name)
 	fmt.Fprintf(&b, "description: %q\n", repo.Description)
 	fmt.Fprintf(&b, "date: %s\n", repo.PushedAt)
 	fmt.Fprintf(&b, "lastmod: %s\n", repo.PushedAt)
@@ -62,7 +64,7 @@ func buildSectionIndex(repo Repo, sha, readmeSHA string) string {
 	fmt.Fprintf(&b, "  source_sha: %q\n", sha)
 	fmt.Fprintf(&b, "  readme_sha: %q\n", readmeSHA)
 	b.WriteString("  seo:\n")
-	fmt.Fprintf(&b, "    title: %q\n", repo.Name+" | ComplyTime")
+	fmt.Fprintf(&b, "    title: %q\n", title+" | ComplyTime")
 	fmt.Fprintf(&b, "    description: %q\n", repo.Description)
 	b.WriteString("---\n")
 
@@ -91,18 +93,82 @@ func buildOverviewPage(repo Repo, readme string) string {
 	return b.String()
 }
 
-// titleFromFilename converts a Markdown filename stem to a human-readable title.
-// E.g. "quick-start" → "Quick Start", "sync_cac_content" → "Sync Cac Content".
-func titleFromFilename(name string) string {
-	name = strings.TrimSuffix(name, filepath.Ext(name))
-	name = strings.NewReplacer("-", " ", "_", " ").Replace(name)
-	words := strings.Fields(name)
+// knownAcronyms maps lowercase tokens to their canonical uppercase form.
+// Used by smartTitle to preserve intended casing for common technical terms.
+var knownAcronyms = map[string]string{
+	"api":    "API",
+	"apis":   "APIs",
+	"cac":    "CAC",
+	"ci":     "CI",
+	"cd":     "CD",
+	"cli":    "CLI",
+	"cpu":    "CPU",
+	"css":    "CSS",
+	"dns":    "DNS",
+	"faq":    "FAQ",
+	"grpc":   "gRPC",
+	"html":   "HTML",
+	"http":   "HTTP",
+	"https":  "HTTPS",
+	"id":     "ID",
+	"io":     "I/O",
+	"ip":     "IP",
+	"json":   "JSON",
+	"jwt":    "JWT",
+	"k8s":    "K8s",
+	"oauth":  "OAuth",
+	"openid": "OpenID",
+	"oscal":  "OSCAL",
+	"rbac":   "RBAC",
+	"rest":   "REST",
+	"sdk":    "SDK",
+	"sql":    "SQL",
+	"ssh":    "SSH",
+	"sso":    "SSO",
+	"tcp":    "TCP",
+	"tls":    "TLS",
+	"toml":   "TOML",
+	"ui":     "UI",
+	"uri":    "URI",
+	"url":    "URL",
+	"uuid":   "UUID",
+	"vm":     "VM",
+	"xml":    "XML",
+	"yaml":   "YAML",
+}
+
+// smartTitle capitalises the first letter of each word, but preserves
+// canonical casing for known acronyms (e.g. "api" → "API", "cac" → "CAC").
+func smartTitle(words []string) string {
 	for i, w := range words {
+		if canonical, ok := knownAcronyms[strings.ToLower(w)]; ok {
+			words[i] = canonical
+			continue
+		}
 		if len(w) > 0 {
 			words[i] = strings.ToUpper(w[:1]) + w[1:]
 		}
 	}
 	return strings.Join(words, " ")
+}
+
+// formatRepoTitle converts a GitHub repo name (typically lowercase/kebab-case)
+// into a human-readable title for Hugo frontmatter.
+// E.g. "complyctl" → "Complyctl", "oscal-sdk" → "OSCAL SDK".
+func formatRepoTitle(repoName string) string {
+	words := strings.FieldsFunc(repoName, func(r rune) bool {
+		return r == '-' || r == '_'
+	})
+	return smartTitle(words)
+}
+
+// titleFromFilename converts a Markdown filename stem to a human-readable title.
+// E.g. "quick-start" → "Quick Start", "sync_cac_content" → "Sync CAC Content".
+func titleFromFilename(name string) string {
+	name = strings.TrimSuffix(name, filepath.Ext(name))
+	name = strings.NewReplacer("-", " ", "_", " ").Replace(name)
+	words := strings.Fields(name)
+	return smartTitle(words)
 }
 
 // buildDocPage generates a Hugo doc page with auto-generated frontmatter

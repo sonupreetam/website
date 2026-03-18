@@ -105,47 +105,61 @@ func TestStripBadges(t *testing.T) {
 	})
 }
 
-func TestStripLeadingH1(t *testing.T) {
-	t.Run("matching H1 removed", func(t *testing.T) {
-		input := "# my-repo\n\nBody text"
-		result := stripLeadingH1(input, "my-repo")
-		if strings.Contains(result, "# my-repo") {
-			t.Error("matching H1 should be removed")
+func TestShiftHeadings(t *testing.T) {
+	t.Run("H1 becomes H2", func(t *testing.T) {
+		input := "# Title\n\nBody text"
+		result := shiftHeadings(input)
+		if !strings.Contains(result, "## Title") {
+			t.Errorf("H1 should become H2, got %q", result)
 		}
-		if !strings.Contains(result, "Body text") {
-			t.Error("body should be preserved")
-		}
-	})
-
-	t.Run("case insensitive match", func(t *testing.T) {
-		input := "# My-Repo\n\nBody"
-		result := stripLeadingH1(input, "my-repo")
-		if strings.Contains(result, "# My-Repo") {
-			t.Error("case-insensitive H1 should be removed")
+		if strings.HasPrefix(result, "# Title") {
+			t.Error("original H1 should not remain")
 		}
 	})
 
-	t.Run("non-matching H1 preserved", func(t *testing.T) {
-		input := "# Different Title\n\nBody"
-		result := stripLeadingH1(input, "my-repo")
-		if !strings.Contains(result, "# Different Title") {
-			t.Error("non-matching H1 should be preserved")
+	t.Run("H2 becomes H3", func(t *testing.T) {
+		input := "## Subtitle\n\nBody"
+		result := shiftHeadings(input)
+		if !strings.Contains(result, "### Subtitle") {
+			t.Errorf("H2 should become H3, got %q", result)
 		}
 	})
 
-	t.Run("no H1", func(t *testing.T) {
-		input := "Body text without heading"
-		result := stripLeadingH1(input, "my-repo")
+	t.Run("H6 stays H6", func(t *testing.T) {
+		input := "###### Deep\n\nBody"
+		result := shiftHeadings(input)
+		if !strings.Contains(result, "###### Deep") {
+			t.Errorf("H6 should stay H6, got %q", result)
+		}
+	})
+
+	t.Run("multiple headings shifted", func(t *testing.T) {
+		input := "# Title\n\n## Section\n\n### Sub\n\nBody"
+		result := shiftHeadings(input)
+		if !strings.Contains(result, "## Title") {
+			t.Errorf("H1 should become H2, got %q", result)
+		}
+		if !strings.Contains(result, "### Section") {
+			t.Errorf("H2 should become H3, got %q", result)
+		}
+		if !strings.Contains(result, "#### Sub") {
+			t.Errorf("H3 should become H4, got %q", result)
+		}
+	})
+
+	t.Run("no headings unchanged", func(t *testing.T) {
+		input := "Body text without any headings"
+		result := shiftHeadings(input)
 		if result != input {
-			t.Error("content without H1 should be unchanged")
+			t.Errorf("content without headings should be unchanged\ngot:  %q\nwant: %q", result, input)
 		}
 	})
 
-	t.Run("H1 only line", func(t *testing.T) {
-		input := "# my-repo"
-		result := stripLeadingH1(input, "my-repo")
-		if result != "" {
-			t.Errorf("H1-only content should return empty string, got %q", result)
+	t.Run("body text preserved", func(t *testing.T) {
+		input := "# Title\n\nParagraph one.\n\nParagraph two."
+		result := shiftHeadings(input)
+		if !strings.Contains(result, "Paragraph one.") || !strings.Contains(result, "Paragraph two.") {
+			t.Error("body text should be preserved")
 		}
 	})
 }

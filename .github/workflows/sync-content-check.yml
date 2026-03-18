@@ -4,6 +4,7 @@ name: Content Sync Check
 on:
   schedule:
     - cron: '0 6 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -11,6 +12,7 @@ permissions:
 
 jobs:
   check:
+    if: github.repository_owner == 'sonupreetam'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

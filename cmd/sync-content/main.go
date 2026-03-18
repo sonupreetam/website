@@ -371,11 +371,6 @@ func main() {
 			if orphans > 0 {
 				slog.Info("cleaned orphaned files from previous sync", "count", orphans)
 			}
-		} else {
-			if err := cleanStaleContent(*output, newState); err != nil {
-				slog.Warn("could not clean stale content", "error", err)
-				result.addWarning()
-			}
 		}
 		if err := writeManifest(*output, result.writtenFiles); err != nil {
 			slog.Warn("could not write sync manifest", "error", err)

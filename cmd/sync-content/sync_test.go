@@ -72,8 +72,11 @@ func TestProcessRepo(t *testing.T) {
 		t.Fatalf("section index not written: %v", err)
 	}
 	index := string(data)
-	if !strings.Contains(index, "title:") {
-		t.Error("section index should contain frontmatter title")
+	if !strings.Contains(index, `title: "Test Repo"`) {
+		t.Error("section index title should use formatRepoTitle")
+	}
+	if !strings.Contains(index, `linkTitle: "test-repo"`) {
+		t.Error("section index should have linkTitle with raw repo name")
 	}
 	if !strings.Contains(index, "readme_sha:") {
 		t.Error("section index should contain readme_sha in frontmatter")
@@ -94,8 +97,11 @@ func TestProcessRepo(t *testing.T) {
 	if !strings.Contains(overview, "This is a test README.") {
 		t.Error("overview page should contain README body")
 	}
-	if strings.Contains(overview, "# test-repo") {
-		t.Error("leading H1 matching repo name should be stripped from overview")
+	if strings.Contains(overview, "\n# test-repo") || strings.HasPrefix(overview, "# test-repo") {
+		t.Error("H1 heading should be shifted to H2 in overview")
+	}
+	if !strings.Contains(overview, "## test-repo") {
+		t.Error("original H1 should appear as H2 after heading shift")
 	}
 	if !strings.Contains(overview, `title: "Overview"`) {
 		t.Error("overview page should have title 'Overview'")
@@ -286,6 +292,12 @@ func TestSyncConfigSource(t *testing.T) {
 		}
 		if !strings.Contains(content, "https://github.com/org/complyctl/blob/main/docs/guide.md") {
 			t.Error("relative link should become absolute GitHub URL")
+		}
+		if strings.Contains(content, "\n# complyctl") {
+			t.Error("H1 should be shifted to H2 by shiftHeadings")
+		}
+		if !strings.Contains(content, "## complyctl") {
+			t.Error("original H1 should appear as H2 after heading shift")
 		}
 	})
 
@@ -502,6 +514,12 @@ func TestSyncRepoDocPages(t *testing.T) {
 		}
 		if !strings.Contains(content, "<!-- synced from "+tc.provSrc) {
 			t.Errorf("%s: missing provenance comment for %s:\n%s", tc.relPath, tc.provSrc, content)
+		}
+		if strings.Contains(content, "\n# "+tc.title+"\n") {
+			t.Errorf("%s: H1 heading should be shifted to H2", tc.relPath)
+		}
+		if !strings.Contains(content, "## "+tc.title) {
+			t.Errorf("%s: original H1 should appear as H2 after heading shift", tc.relPath)
 		}
 	}
 

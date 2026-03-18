@@ -67,7 +67,7 @@ Start simple, apply YAGNI. No abstractions without proven need. Tooling favors f
 Build, sync, and deployment are fully automated via GitHub Actions. No manual deployment steps. The workflow model includes:
 
 1. **CI** — validates PRs with dry-run sync, Go checks, and Hugo build.
-2. **Content Sync Check** — runs periodically to discover new repos/docs, detect upstream changes, and open a PR for human review.
+2. **Content Sync Check** — runs periodically to detect upstream changes and open a PR for human review.
 3. **Deploy** — on push to the default branch, syncs content at approved SHAs, builds Hugo, and publishes to GitHub Pages.
 
 Upstream content changes MUST be reviewed via a content sync PR before reaching production. No unreviewed content is deployed.

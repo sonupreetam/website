@@ -154,6 +154,7 @@ func syncConfigSource(ctx context.Context, gh *apiClient, src Source, defaults D
 		if file.Transform.StripBadges {
 			content = stripBadges(content)
 		}
+		content = shiftHeadings(content)
 		if file.Transform.RewriteLinks {
 			content = rewriteRelativeLinks(content, owner, repoName, src.Branch)
 		}
@@ -316,7 +317,7 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 		}
 
 		if readme != "" {
-			readme = stripLeadingH1(readme, repo.Name)
+			readme = shiftHeadings(readme)
 			readme = stripBadges(readme)
 			readme = rewriteRelativeLinks(readme, org, repo.Name, repo.DefaultBranch)
 		} else {
@@ -439,6 +440,7 @@ func syncRepoDocPages(ctx context.Context, gh *apiClient, org string, repo Repo,
 			}
 
 			content = stripBadges(content)
+			content = shiftHeadings(content)
 			fileDir := filepath.Dir(filePath)
 			content = rewriteRelativeLinks(content, org, repo.Name, repo.DefaultBranch, fileDir)
 

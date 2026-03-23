@@ -1,0 +1,38 @@
+[
+  {
+    "name": "complyctl",
+    "language": "Go",
+    "type": "CLI Tool",
+    "description": "A command-line tool for streamlining end-to-end compliance workflows on local systems.",
+    "url": "/docs/projects/complyctl/",
+    "repo": "https://github.com/complytime/complyctl",
+    "stars": 31
+  },
+  {
+    "name": "complyscribe",
+    "language": "Python",
+    "type": "Automation",
+    "description": "A workflow automation tool for compliance content authoring",
+    "url": "/docs/projects/complyscribe/",
+    "repo": "https://github.com/complytime/complyscribe",
+    "stars": 22
+  },
+  {
+    "name": "complytime-collector-components",
+    "language": "Go",
+    "type": "Observability",
+    "description": "A policy-driven observability toolkit for compliance evidence collection",
+    "url": "/docs/projects/complytime-collector-components/",
+    "repo": "https://github.com/complytime/complytime-collector-components",
+    "stars": 4
+  },
+  {
+    "name": "gemara-content-service",
+    "language": "Go",
+    "type": "Library",
+    "description": "A content delivery and enrichment service for Gemara compliance artifacts.",
+    "url": "/docs/projects/gemara-content-service/",
+    "repo": "https://github.com/complytime/gemara-content-service",
+    "stars": 1
+  }
+]

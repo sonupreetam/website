@@ -160,6 +160,9 @@ func syncConfigSource(ctx context.Context, gh *apiClient, src Source, defaults D
 		if file.Transform.RewriteLinks {
 			content = rewriteRelativeLinks(content, owner, repoName, src.Branch)
 		}
+		if file.Transform.RewriteDiagrams {
+			content = rewriteDiagramBlocks(content)
+		}
 
 		out := []byte(content)
 		if len(file.Transform.InjectFrontmatter) > 0 {
@@ -323,6 +326,7 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 			readme = shiftHeadings(readme)
 			readme = titleCaseHeadings(readme)
 			readme = stripBadges(readme)
+			readme = rewriteDiagramBlocks(readme)
 			readme = rewriteRelativeLinks(readme, org, repo.Name, repo.DefaultBranch)
 		} else {
 			readme = fmt.Sprintf(
@@ -448,6 +452,7 @@ func syncRepoDocPages(ctx context.Context, gh *apiClient, org string, repo Repo,
 			content = stripLeadingH1(content)
 			content = shiftHeadings(content)
 			content = titleCaseHeadings(content)
+			content = rewriteDiagramBlocks(content)
 			fileDir := filepath.Dir(filePath)
 			content = rewriteRelativeLinks(content, org, repo.Name, repo.DefaultBranch, fileDir)
 

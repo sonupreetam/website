@@ -66,6 +66,7 @@ type Transform struct {
 	InjectFrontmatter map[string]any `yaml:"inject_frontmatter"`
 	RewriteLinks      bool           `yaml:"rewrite_links"`
 	StripBadges       bool           `yaml:"strip_badges"`
+	RewriteDiagrams   bool           `yaml:"rewrite_diagrams"`
 }
 
 // loadConfig reads a sync-config.yaml file and returns the parsed configuration.

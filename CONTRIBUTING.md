@@ -27,6 +27,7 @@ oriented quickly.
 - [CI/CD and Deployment](#cicd-and-deployment)
 - [Coding Conventions](#coding-conventions)
 - [Pull Request Process](#pull-request-process)
+- [Development Workflow](#development-workflow)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -87,25 +88,6 @@ watches for file changes and rebuilds automatically.
 > **Note:** Step 3 fetches README content and metadata from the `complytime`
 > GitHub org. Set the `GITHUB_TOKEN` environment variable for higher API rate
 > limits. Without it, unauthenticated requests are limited to 60/hour.
-
-### Other Useful Commands
-
-```bash
-# Production build (output → public/)
-npm run build
-
-# Preview the production build
-npm run preview
-
-# Format files with Prettier
-npm run format
-
-# Sync content in dry-run mode (preview without writing)
-go run ./cmd/sync-content --org complytime --config sync-config.yaml
-
-# Run Go tests
-go test -race ./cmd/sync-content/...
-```
 
 ---
 
@@ -221,7 +203,8 @@ manually. To add a new project:
 
 For repos needing custom file sync with transforms (e.g., specific doc pages
 with injected frontmatter), add a source entry in `sync-config.yaml`. See
-`specs/006-go-sync-tool/quickstart.md` for details.
+[cmd/sync-content/README.md](cmd/sync-content/README.md#configuration) for the
+config format.
 
 ### Change Navigation Menus
 
@@ -261,7 +244,7 @@ remove a feature card, look for the `<!-- Features Section -->` comment in
 Edit `assets/scss/common/_variables-custom.scss`:
 
 ```scss
-// Brand colors — change these to re-theme the site
+// Brand colors — change these to re-theme the sitee
 $cyan-600: #0891b2;   // Primary color
 $primary: $cyan-600;
 
@@ -420,31 +403,92 @@ style: fix indentation in home template
 
 ---
 
+## Development Workflow
+
+### Day-to-Day
+
+```bash
+npm run dev          # Dev server with live reload
+npm run build        # Production build (output → public/)
+npm run preview      # Preview the production build
+npm run format       # Format files with Prettier
+```
+
+### Clean Build (CI Match)
+
+`hugo server` and `hugo --minify --gc` can produce different results. Always
+validate with a production build before trusting the dev server:
+
+```bash
+rm -rf public/ resources/
+npm run build
+```
+
+### Full Nuclear Clean
+
+When something looks wrong and a clean build isn't enough — removes cached
+Hugo resources, node_modules, and reinstalls from the lockfile:
+
+```bash
+rm -rf public/ resources/ /tmp/hugo_cache/ node_modules/
+npm ci
+npm run build
+```
+
+### Testing the Sync Tool
+
+Dry-run (preview without writing):
+
+```bash
+go run ./cmd/sync-content --org complytime --config sync-config.yaml
+```
+
+Full reset and resync (useful when upstream content or sync logic changes):
+
+```bash
+rm -f .sync-manifest.json data/projects.json
+rm -rf content/docs/projects/*/
+rm -rf public/ resources/
+go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json --write
+npm run build
+```
+
+Run Go tests:
+
+```bash
+go test -race ./cmd/sync-content/...
+```
+
+If you encounter missing token errors, verify your `GITHUB_TOKEN`:
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+echo "Token set, length: ${#GITHUB_TOKEN}, prefix: ${GITHUB_TOKEN:0:4}"
+go run ./cmd/sync-content --org complytime --config sync-config.yaml --write
+```
+
+### Testing Tips
+
+- Always test with **browser cache disabled** (DevTools → Network →
+  "Disable cache").
+- When in doubt, run a [clean build](#clean-build-ci-match) — the dev server
+  can mask issues that show up in production.
+
+---
+
 ## Troubleshooting
 
 ### `npm run dev` fails with Hugo errors
 
-Make sure you're on Node.js ≥ 20.11.0:
-
-```bash
-node --version
-```
-
-If Hugo isn't found, it's installed as part of the npm dependencies. Try:
-
-```bash
-rm -rf node_modules
-npm install
-npm run dev
-```
+Make sure you're on Node.js ≥ 22. If Hugo isn't found, try a
+[full nuclear clean](#full-nuclear-clean).
 
 ### Changes not showing up in the browser
 
-Hugo's dev server uses live reload. If it's not picking up changes:
-
 1. Check the terminal for build errors
 2. Try stopping and restarting `npm run dev`
-3. For SCSS changes, a hard refresh (Cmd+Shift+R / Ctrl+Shift+R) may be needed
+3. Hard refresh (Cmd+Shift+R / Ctrl+Shift+R) for SCSS changes
+4. Test with browser cache disabled (DevTools → Network → "Disable cache")
 
 ### Image processing errors
 
@@ -456,7 +500,7 @@ handle most cases. If it doesn't:
 - Local SVGs: Place them in `assets/` or a page bundle
 - The error level is set to `ignore` in `params.toml`, so most issues are
   silently skipped
-
+e
 ### Build output confusion: `public/` vs `docs/`
 
 - **`public/`** — Hugo's build output directory (generated, gitignored)

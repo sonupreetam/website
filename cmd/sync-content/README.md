@@ -55,104 +55,19 @@ Config sources can operate alongside or instead of the org scan per-repo:
 | `false` (default) | Generated from README | Synced as additional content | Yes |
 | `true` | Suppressed | Synced as primary content | Yes |
 
-## Quick Start
+## Quick Reference
 
-### Prerequisites
+For setup, prerequisites, and day-to-day commands, see
+[CONTRIBUTING.md](../../CONTRIBUTING.md#development-workflow). For the full CLI
+flag reference, see the [spec](../../specs/006-go-sync-tool/spec.md#cli-interface).
 
-- **Go 1.25+** — the sync tool is pure Go with one dependency (`gopkg.in/yaml.v3`)
-- **Node.js 22+** — for the Hugo/Doks theme build (`npm ci`)
-- **Hugo extended** — the static site generator
-- **`GITHUB_TOKEN`** (recommended) — unauthenticated rate limit is 60 requests/hour
-
-### 1. Dry-run (preview without writing)
+The essentials:
 
 ```bash
-go run ./cmd/sync-content --org complytime --config sync-config.yaml
-```
-
-Logs every action the tool would take but creates zero files. This is the default
-mode — you must explicitly opt in to writes.
-
-### 2. Write mode (generate content)
-
-```bash
-go run ./cmd/sync-content --org complytime --config sync-config.yaml --write
-```
-
-Produces:
-
-| Output | Path |
-|--------|------|
-| Per-repo section index | `content/docs/projects/{repo}/_index.md` |
-| Per-repo README page | `content/docs/projects/{repo}/overview.md` |
-| Auto-discovered doc pages | `content/docs/projects/{repo}/*.md` |
-| Landing page card data | `data/projects.json` |
-| Sync manifest | `.sync-manifest.json` |
-| Content lockfile (with `--update-lock`) | `.content-lock.json` |
-
-### 3. Start Hugo
-
-```bash
-npm run dev
-```
-
-Navigate to `http://localhost:1313/`. Project pages appear at `/docs/projects/`.
-
-### 4. Build for production
-
-```bash
-# Local dev (fetches HEAD):
-go run ./cmd/sync-content --org complytime --config sync-config.yaml --write
-
-# Production (fetches at approved SHAs):
-go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json --write
-
-hugo --minify --gc
-```
-
-Output is in `public/`. The `--lock` flag ensures content matches the approved
-SHAs in `.content-lock.json`. Omit it for local development to fetch latest HEAD.
-
-## CLI Reference
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--org` | `complytime` | GitHub organization (reads `peribolos.yaml` from `{org}/.github` repo) |
-| `--token` | `$GITHUB_TOKEN` | GitHub API token (or set the env var) |
-| `--config` | _(none)_ | Path to `sync-config.yaml` for config-driven file syncs |
-| `--write` | `false` | Apply changes to disk (without this flag, everything is a dry-run) |
-| `--output` | `.` | Hugo site root directory |
-| `--repo` | _(none)_ | Sync only this repo, e.g. `complytime/complyctl` |
-| `--include` | _(all)_ | Comma-separated repo allowlist (empty = all eligible repos) |
-| `--exclude` | _(see config)_ | Comma-separated repo names to skip; merged with `discovery.ignore_repos` in `sync-config.yaml` |
-| `--workers` | `5` | Maximum concurrent repo processing goroutines |
-| `--timeout` | `3m` | Overall timeout for all API operations |
-| `--summary` | _(none)_ | Write a Markdown change summary to this file (for PR bodies) |
-| `--lock` | _(none)_ | Path to `.content-lock.json` for content approval gating |
-| `--update-lock` | `false` | Write current upstream SHAs to the lockfile (requires `--lock`) |
-
-## Common Tasks
-
-### Sync a single repository
-
-```bash
-go run ./cmd/sync-content --repo complytime/complyctl --config sync-config.yaml --write
-```
-
-### Generate a change summary for PR review
-
-```bash
-go run ./cmd/sync-content --org complytime --config sync-config.yaml --write \
-  --summary sync-report.md
-```
-
-The summary file contains a Markdown report with new/updated/removed repos and
-stats.
-
-### Increase concurrency for faster syncs
-
-```bash
-go run ./cmd/sync-content --org complytime --workers 10 --write
+go run ./cmd/sync-content --org complytime --config sync-config.yaml           # dry-run
+go run ./cmd/sync-content --org complytime --config sync-config.yaml --write   # write mode
+go run ./cmd/sync-content --repo complytime/complyctl --config sync-config.yaml --write  # single repo
+go test -race ./cmd/sync-content/...                                           # run tests
 ```
 
 ## Configuration
@@ -411,141 +326,15 @@ params:
 
 ## CI/CD Integration
 
-### Three-Workflow Model
+The tool integrates with three GitHub Actions workflows. See
+[CONTRIBUTING.md](../../CONTRIBUTING.md#cicd-and-deployment) for workflow details.
 
-The tool integrates with three GitHub Actions workflows (Constitution XV v1.3.0):
+**Structured outputs** — when running in GitHub Actions, the tool writes to
+`$GITHUB_OUTPUT` (`has_changes`, `changed_count`, `error_count`) and
+`$GITHUB_STEP_SUMMARY` (Markdown sync report). The `--summary` flag writes the
+same report to a file for PR body generation.
 
-**1. CI (`ci.yml`)** — PR validation (syncs content and builds the site to catch breakage):
-
-```yaml
-- name: Sync content
-  run: go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json --write
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
-
-**2. Content Sync Check (`sync-content-check.yml`)** — weekly upstream detection:
-
-```yaml
-- name: Check for upstream changes
-  run: go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json --update-lock --summary sync-summary.md
-```
-
-Checks upstream SHAs and creates/updates a PR with lockfile changes when content has moved. Since peribolos provides the authoritative repo list, separate discovery is unnecessary.
-
-**3. Deploy (`deploy-gh-pages.yml`)** — production build:
-
-```yaml
-- name: Sync content
-  run: go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json --write
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-- name: Build site
-  run: hugo --minify --gc
-```
-
-Upstream content changes require a reviewed PR before reaching production — no
-unreviewed content is deployed.
-
-### Structured Outputs
-
-When running in GitHub Actions, the tool writes structured data to
-`$GITHUB_OUTPUT` and `$GITHUB_STEP_SUMMARY`:
-
-**`GITHUB_OUTPUT`:**
-
-```
-has_changes=true
-changed_count=3
-error_count=0
-```
-
-**`GITHUB_STEP_SUMMARY`:** A Markdown table with new/updated/removed repos and
-sync stats.
-
-**`--summary` flag:** Writes the same Markdown report to a file, useful for
-automated PR body generation.
-
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Success (all repos synced or dry-run complete) |
-| 1 | One or more errors occurred (API failures, write errors) |
-
-## Testing
-
-Tests are split across 10 `*_test.go` files that mirror the source files. A
-shared `helpers_test.go` provides common utilities.
-
-```bash
-# Run all tests
-go test ./cmd/sync-content/...
-
-# Run with race detector
-go test -race ./cmd/sync-content/...
-
-# Run with verbose output
-go test -v ./cmd/sync-content/...
-```
-
-### Test Coverage
-
-| Category | What's tested |
-|----------|---------------|
-| Config loading | Valid YAML, malformed YAML, missing file, default values, missing required fields |
-| Frontmatter injection | Prepend to bare content, replace existing frontmatter, empty content |
-| Badge stripping | Line-start badges removed, inline badges preserved, no-badge passthrough |
-| Heading shifting | All headings bumped down one level (H1→H2, H2→H3, …) so Hugo page title is the sole H1 |
-| Heading casing | ALL CAPS normalised to Title Case, acronyms preserved, mixed-case normalised, multi-word headings |
-| Title from filename | ALL CAPS filenames (`CONTRIBUTING.md` → `Contributing`), hyphen/underscore splitting, acronym preservation |
-| Link rewriting | Relative to absolute, images to raw URLs, absolute URLs unchanged, anchors unchanged, `./` prefix |
-| Repo name validation | Valid names, empty, `.`, `..`, path separators |
-| `processRepo` integration | Mock API server, project page written with correct frontmatter, headings shifted, README SHA recorded |
-| Branch-unchanged fast path | No README fetch when branch SHA matches, manifest carry-forward |
-| Branch-changed README-unchanged | Two-tier detection classifies as unchanged |
-| `syncConfigSource` | All transforms applied, provenance comment inserted, dry-run writes nothing |
-| Doc page scanning | Auto-syncs `docs/*.md`, skips config-tracked files, generates section indexes |
-| Manifest round-trip | Write and read manifest, orphan cleanup, empty directory pruning |
-| Concurrent access | Race-safe `syncResult` mutations, concurrent `recordFile` |
-| Peribolos integration | Governance registry fetch, repo validation, missing org handling |
-
-All integration tests use `net/http/httptest` to mock the GitHub API. No real API
-calls are made during testing.
-
-## File Inventory
-
-```
-cmd/sync-content/
-├── main.go           # Entry point and orchestration (~440 lines)
-├── config.go         # Config types and loading
-├── github.go         # GitHub API client and types
-├── transform.go      # Markdown transforms (links, badges, frontmatter)
-├── hugo.go           # Hugo page and card generation
-├── sync.go           # Sync logic, result tracking, repo processing
-├── manifest.go       # Manifest I/O and state tracking
-├── cleanup.go        # Orphan and stale content removal
-├── path.go           # Path validation utilities
-├── lock.go           # Content lockfile read/write/query
-├── *_test.go         # Tests mirror source files (10 files)
-└── README.md         # This file
-
-sync-config.yaml      # Declarative sync config (repo root)
-.content-lock.json    # Approved upstream SHAs per repo (committed)
-go.mod                # Go module: github.com/complytime/website
-go.sum                # Dependency checksums
-```
-
-### Generated Files (gitignored, not committed)
-
-```
-content/docs/projects/{repo}/_index.md    # Section index (metadata only)
-content/docs/projects/{repo}/overview.md  # README content page
-content/docs/projects/{repo}/*.md         # Auto-discovered doc pages
-data/projects.json                        # Landing page card data
-.sync-manifest.json                       # Orphan tracking manifest
-```
+**Exit codes**: `0` = success, `1` = one or more errors (API failures, write errors).
 
 ## License
 

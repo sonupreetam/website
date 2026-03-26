@@ -419,6 +419,16 @@ func syncRepoDocPages(ctx context.Context, gh *apiClient, org string, repo Repo,
 				continue
 			}
 
+			// Hugo treats index.md as a leaf bundle, which conflicts
+			// with the _index.md branch bundle (section page) the sync
+			// tool generates for every project directory. Allowing both
+			// causes Hugo to hide the section and its children.
+			if strings.EqualFold(baseName, "index.md") {
+				logger.Info("skipping index.md (conflicts with Hugo _index.md section page)",
+					"src", filePath)
+				continue
+			}
+
 			relPath := strings.TrimPrefix(filePath, scanPath+"/")
 			destRel := filepath.Join("content", "docs", "projects", repo.Name, relPath)
 			destPath := filepath.Join(output, destRel)

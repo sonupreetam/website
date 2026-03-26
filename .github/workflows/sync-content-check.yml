@@ -1,0 +1,40 @@
+---
+name: Content Sync Check
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  content-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Setup Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version-file: go.mod
+
+      - name: Check for upstream changes
+        run: go run ./cmd/sync-content --org complytime --config sync-config.yaml --lock .content-lock.json --update-lock --summary sync-summary.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or update PR
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0
+        with:
+          add-paths: .content-lock.json
+          branch: automated/content-sync-update
+          commit-message: "content: update upstream documentation lockfile"
+          title: "content: update upstream documentation"
+          body-path: sync-summary.md
+          labels: automated, documentation
+          delete-branch: true

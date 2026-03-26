@@ -1,6 +1,6 @@
 # Feature Specification: Go Content Sync Tool
 
-**Feature Branch**: `006-go-sync-tool`
+**Feature ID**: `006-go-sync-tool` (active branch: `feat/diagram-rewrite-transform`)
 **Phase**: 2 (Content Infrastructure)
 
 ## Overview
@@ -23,13 +23,13 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, 10 
 | IS-002 | README fetch with base64 decoding and SHA tracking |
 | IS-003 | Per-repo page generation: section index (`_index.md`, frontmatter only, with `formatRepoTitle` for `title` and raw repo name as `linkTitle` for sidebar; ALL CAPS repo/file names normalised to Title Case) + overview page (`overview.md`, README content) |
 | IS-004 | Landing page card generation (`data/projects.json`) with type derivation from topics |
-| IS-005 | Config-driven file sync with transforms (`inject_frontmatter`, `rewrite_links`, `strip_badges`, `rewrite_diagrams`); all synced content (org-discovered and config-driven) unconditionally receives `stripLeadingH1`, `shiftHeadings`, `titleCaseHeadings`, `stripBadges`, `rewriteDiagramBlocks`, and `rewriteRelativeLinks` |
+| IS-005 | Config-driven file sync with transforms (`inject_frontmatter`, `rewrite_links`, `strip_badges`, `rewrite_diagrams`). All synced content unconditionally receives `stripLeadingH1`, `shiftHeadings`, and `titleCaseHeadings`. Org-discovered content (README overviews and doc pages) additionally receives `stripBadges`, `rewriteDiagramBlocks`, and `rewriteRelativeLinks` unconditionally. Config sources apply `stripBadges`, `rewriteRelativeLinks`, and `rewriteDiagramBlocks` only when their respective transform flags are set. |
 | IS-006 | Concurrent processing with bounded worker pool (`--workers`) |
 | IS-007 | Dry-run by default; `--write` flag required for disk I/O |
-| IS-008 | Markdown transforms: `stripLeadingH1` (removes leading H1 — title already in frontmatter), `shiftHeadings` (H1→H2, H2→H3, …), `titleCaseHeadings` (acronym-aware Title Case for in-page headings and TOC; normalises ALL CAPS words to Title Case while preserving known acronyms from the `knownAcronyms` map in `hugo.go` — ~30 domain terms; maintainers add entries as new projects introduce terminology), `stripBadges`, `rewriteRelativeLinks`, `rewriteDiagramBlocks` (converts fenced diagram code blocks — mermaid, plantuml, d2, graphviz/dot, ditaa, and other Kroki-supported languages — to `kroki {type=…}` format for server-side rendering via Doks' `render-codeblock-kroki.html` hook; `dot` normalised to `graphviz`; routes mermaid through Kroki rather than Doks' client-side `render-codeblock-mermaid.html` to uphold Constitution V) |
+| IS-008 | Markdown transforms — **unconditional** (all content): `stripLeadingH1` (removes leading H1 — title already in frontmatter), `shiftHeadings` (H1→H2, H2→H3, …), `titleCaseHeadings` (acronym-aware Title Case for in-page headings and TOC; normalises ALL CAPS words to Title Case while preserving known acronyms from the `knownAcronyms` map in `hugo.go` — ~30 domain terms; maintainers add entries as new projects introduce terminology). **Unconditional for org-discovered, config-gated for config sources**: `stripBadges`, `rewriteRelativeLinks`, `rewriteDiagramBlocks` (converts fenced diagram code blocks — mermaid, plantuml, d2, graphviz/dot, ditaa, and other Kroki-supported languages — to `kroki {type=…}` format for server-side rendering via Doks' `render-codeblock-kroki.html` hook; `dot` normalised to `graphviz`; routes mermaid through Kroki rather than Doks' client-side `render-codeblock-mermaid.html` to uphold Constitution V) |
 | IS-009 | Repo filtering: `--include`/`--exclude` lists (peribolos is the governance gate; no API metadata filtering) |
 | IS-012 | Sync manifest (`.sync-manifest.json`) for orphan file tracking |
-| IS-014 | Doc page auto-sync from `discovery.scan_paths` directories |
+| IS-014 | Doc page auto-sync from `discovery.scan_paths` directories; upstream `index.md` files are skipped to prevent Hugo leaf/branch bundle conflicts with generated `_index.md` section pages |
 | IS-016 | Single-repo mode (`--repo`): sync only one repository (validated against peribolos) |
 | IS-017 | Summary file generation (`--summary report.md`) |
 | IS-018 | GitHub CI outputs: `GITHUB_OUTPUT` variables and `GITHUB_STEP_SUMMARY` |
@@ -55,7 +55,14 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, 10 
 | Repo in peribolos but deleted on GitHub | API metadata fetch returns 404; log warning, skip repo, continue |
 | `.github` repo missing or peribolos.yaml absent | Fatal error — log and exit non-zero |
 | `--org` flag value doesn't match peribolos `orgs` key | Fatal error — log mismatch and exit non-zero |
-| `--repo` flag used (single-repo mode) | Validated against peribolos — repo must exist in governance registry; metadata fetched from API |
+| `--repo` flag used (single-repo mode) | Validated against peribolos — repo must exist in governance registry; metadata fetched from API. No dedicated verification task; covered by `TestParseNameList_RepoFilterOverridesExclude` in `sync_test.go` |
+
+### Edge Cases (Doc Page Sync)
+
+| Case | Expected Behavior |
+|------|-------------------|
+| Upstream repo has `docs/index.md` (e.g. mkdocs landing page) | Skipped with info log — Hugo treats `index.md` as a leaf bundle, which conflicts with the `_index.md` branch bundle the sync tool generates. Content is not lost; the README is already synced as `overview.md`. |
+| Upstream repo has `docs/subdir/index.md` | Skipped — same leaf bundle conflict applies to any directory where the sync tool generates `_index.md` section pages for intermediate directories |
 
 ## User Stories
 
@@ -204,7 +211,7 @@ All criteria must pass before feature 006 merges to `main`.
 | SC-003 | Dry-run produces zero files; write mode produces correct output structure | T003, T004 |
 | SC-004 | Hugo builds with zero errors after sync | T005 |
 | SC-005 | Auto-discovered repos have section index + overview + card | T006, T007 |
-| SC-006 | Config overlay applies transforms at declared dest paths | T008, T009 (deferred until sources declared; code paths covered by unit tests) |
+| SC-006 | Config overlay applies transforms at declared dest paths | T008, T009 cancelled (`sources: []`); code paths covered by unit tests (`TestSyncConfigSource`, `TestInjectFrontmatter`, `TestRewriteDiagramBlocks`) |
 | SC-007 | Change detection skips unchanged repos; stale cleanup removes all files | T010 |
 | SC-008 | Unit and integration tests pass | T015, T016 |
 | SC-009 | `go vet` and `gofmt` pass with zero issues | T019 |
@@ -216,10 +223,11 @@ All criteria must pass before feature 006 merges to `main`.
 | SC-015 | `--update-lock` writes current upstream SHAs to lockfile | `lock_test.go` (`TestWriteLock`, `TestWriteLock_DeterministicOrder`) |
 | SC-016 | Weekly check workflow creates/updates a PR with lockfile changes | `sync-content-check.yml` manual dispatch |
 | SC-017 | Diagram code blocks in upstream content are rewritten to Kroki format and render server-side (not via client-side JS) | `TestRewriteDiagramBlocks` (12 subtests), `sync.go` pipeline integration (3 call sites) |
+| SC-018 | Upstream `index.md` files are skipped during doc page sync to prevent Hugo leaf/branch bundle conflicts | `TestSyncRepoDocPages_SkipsIndexMD` |
 
 ## Merge Readiness Gate
 
-All 17 success criteria (SC-001 through SC-017) MUST pass before merging feature 006 to `main`. SC-006 is deferred (blocked on config sources being declared) but its code paths are covered by unit tests (`TestSyncConfigSource`, `TestProcessRepo`). SC-016 requires a manual `workflow_dispatch` run of `sync-content-check.yml` after merge.
+All 18 success criteria (SC-001 through SC-018) MUST pass before merging feature 006 to `main`. SC-006 tasks cancelled (config sources not declared); code paths covered by unit tests. SC-016 requires a manual `workflow_dispatch` run of `sync-content-check.yml` after merge.
 
 ## Appendix: Legacy ID Cross-Reference
 

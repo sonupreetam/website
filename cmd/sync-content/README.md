@@ -322,6 +322,7 @@ params:
 | `titleCaseHeadings` | Applies acronym-aware Title Case to all in-page heading text (e.g. `## getting started` → `## Getting Started`, `## api reference` → `## API Reference`, `## CONTRIBUTING` → `## Contributing`); normalises ALL CAPS words while preserving known acronyms; ensures page headings and Hugo's TableOfContents match |
 | `stripBadges` | Removes `[![alt](img)](link)` badge patterns from the start of content |
 | `rewriteRelativeLinks` | Converts `[text](path)` to `[text](https://github.com/.../blob/main/path)` and `![alt](img)` to `![alt](https://raw.githubusercontent.com/.../img)` |
+| `rewriteDiagramBlocks` | Converts fenced diagram code blocks (mermaid, plantuml, d2, graphviz/dot, ditaa, and 12 other Kroki-supported languages) to `` ```kroki {type=…} `` format for server-side rendering; `dot` normalised to `graphviz` |
 | `injectFrontmatter` | Prepends or replaces YAML frontmatter with declared key-value pairs |
 
 ## CI/CD Integration

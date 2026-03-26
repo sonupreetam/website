@@ -55,14 +55,14 @@
 
 ## Phase 4: User Story 3 — Config-Driven Precision Sync (Priority: P1)
 
-**Goal**: Config overlay provides precise control over file sync destinations, frontmatter, and transforms for key projects (complyctl, complyscribe, collector-components) without breaking the org scan baseline.
+**Goal**: Config overlay code is implemented and unit-tested. Integration verification deferred to the feature that declares config sources.
 
-**Independent Test**: Verify config-declared files appear at their `dest` paths in `sync-config.yaml` with injected frontmatter and applied transforms.
+**Independent Test**: Unit tests cover `syncConfigSource`, `injectFrontmatter`, `stripBadges`, `rewriteRelativeLinks`, `rewriteDiagramBlocks`. Integration verification will run when `sync-config.yaml` declares sources.
 
-- [ ] T008 [P] [US3] [DEFERRED] Verify `skip_org_sync` behavior: for repos with `skip_org_sync: true` in `sync-config.yaml`, confirm no auto-generated section index (`_index.md`) or overview page (`overview.md`) exists at `content/docs/projects/{repo}/` BUT the repo's `ProjectCard` is present in `data/projects.json`. *Blocked — `sync-config.yaml` currently has `sources: []`. Unblocked when sources are declared for specific repos. Code paths covered by unit tests (`TestSyncConfigSource`, `TestProcessRepo`).*
-- [ ] T009 [P] [US3] [DEFERRED] Verify config file transforms: check config-declared files at their `dest` paths have correct `inject_frontmatter` (YAML frontmatter with title, description, weight), `rewrite_links` (relative links converted to absolute GitHub URLs), `strip_badges` (CI badge lines removed), and `rewrite_diagrams` (diagram code blocks converted to Kroki format) per `sync-config.yaml` transform declarations. *Blocked — `sync-config.yaml` currently has `sources: []`. Unblocked when sources are declared. Code paths covered by unit tests (`TestInjectFrontmatter`, `TestStripBadges`, `TestRewriteRelativeLinks`, `TestRewriteDiagramBlocks`).*
+- [ ] ~~T008~~ [P] [US3] [CANCELLED] Verify `skip_org_sync` behavior. *Cancelled — `sync-config.yaml` has `sources: []` with no timeline for config sources. Code paths fully covered by unit tests (`TestSyncConfigSource`, `TestProcessRepo`). Verification will be part of the feature that adds config sources.*
+- [ ] ~~T009~~ [P] [US3] [CANCELLED] Verify config file transforms. *Cancelled — same rationale as T008. Code paths fully covered by unit tests (`TestInjectFrontmatter`, `TestStripBadges`, `TestRewriteRelativeLinks`, `TestRewriteDiagramBlocks`). Verification will be part of the feature that adds config sources.*
 
-**Checkpoint**: Hybrid mode works — org scan provides the baseline, config overlay provides precision.
+**Checkpoint**: Config overlay code paths are unit-tested. Integration verification deferred to the feature that declares config sources.
 
 ---
 
@@ -236,6 +236,18 @@
 
 ---
 
+## Phase 15: Bug Fixes
+
+**Purpose**: Address production issues discovered during live site validation.
+
+**Ref**: IS-014 (updated), SC-018
+
+- [x] T066 [US1] Skip `index.md` files in `syncRepoDocPages` in `cmd/sync-content/sync.go`: add a guard that skips files named `index.md` (case-insensitive) during doc page auto-sync. Hugo treats `index.md` as a leaf bundle, which conflicts with the `_index.md` branch bundle (section page) the sync tool generates. The conflict caused complyscribe's section to render as a flat "Index" page in the sidebar, hiding all child pages. Tested by `TestSyncRepoDocPages_SkipsIndexMD` in `sync_test.go`. Validates SC-018. *(Done — guard added with info-level log. Test verifies index.md is neither fetched nor written, while sibling files sync normally.)*
+
+**Checkpoint**: Upstream `index.md` files (e.g. mkdocs landing pages) no longer create Hugo leaf bundle conflicts. Project sections render correctly in the sidebar with all child pages visible.
+
+---
+
 ## Appendix: Implicit Coverage Note
 
 > Tasks T003 (dry-run) and T004 (write mode) implicitly exercise the `--timeout`, `--workers` flags, the `maxRetries` constant, and byte-level dedup at their default values. Dedicated isolated tests for these parameters are covered by US6 unit tests (T015, T016) and the race detector run (T017). Hardening phase (Phase 8) covers adversarial and defensive scenarios not reached by happy-path verification.
@@ -244,6 +256,6 @@
 >
 > IS-016 (single-repo mode via `--repo`) has no dedicated verification task. The flag is functional and exercised by unit tests in `sync_test.go` (`TestParseNameList_RepoFilterOverridesExclude`). It was ported from the reference implementation and is a convenience shortcut for `--include` with a single repo — no separate integration-level task was needed.
 >
-> IS-017 (summary file generation via `--summary`) verification is included in T024 rather than a standalone task. The `toMarkdown()` method that generates summary content has no dedicated unit test — its output is exercised by integration-level CI runs.
+> IS-017 (summary file generation via `--summary`) verification is included in T024 rather than a standalone task. The `toMarkdown()` method that generates summary content has no dedicated unit test — its output is exercised by integration-level CI runs. A targeted unit test for `toMarkdown()` (covering added/updated/removed/empty states) would improve coverage but is low priority given the method's simplicity.
 
 

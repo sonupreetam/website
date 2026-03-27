@@ -10,13 +10,13 @@ Replace the config-only `cmd/sync-content` tool with the production-quality gove
 ## Technical Context
 
 **Language/Version**: Go 1.25 (sync tool), Hugo 0.155.1 extended (site generator), Node.js 22 (Doks theme build)
-**Primary Dependencies**: `gopkg.in/yaml.v3` (only third-party Go dep), `@thulite/doks-core` (Hugo theme), Hugo Modules
+**Primary Dependencies**: `github.com/goccy/go-yaml` (only third-party Go dep), `@thulite/doks-core` (Hugo theme), Hugo Modules
 **Storage**: Filesystem — generated Markdown files and JSON; no database
 **Testing**: `go test` with `net/http/httptest` for mock API server, `-race` flag for concurrency safety
 **Target Platform**: Linux (CI), macOS/Linux (local dev)
 **Project Type**: CLI tool (Go) embedded in a static website repo (Hugo)
 **Performance Goals**: Full org sync < 60s with token; Hugo build < 2s
-**Constraints**: All code in `package main` within `cmd/sync-content/` (Constitution XIV: Simplicity); third-party deps minimized — `gopkg.in/yaml.v3` is the sole dep (Constitution II)
+**Constraints**: All code in `package main` within `cmd/sync-content/` (Constitution XIV: Simplicity); third-party deps minimized — `github.com/goccy/go-yaml` is the sole dep (Constitution II)
 **Scale/Scope**: 10 repos in org (4 eligible after `ignore_repos` filtering), 10 Go source files, 10 test files
 
 ## Constitution Check (Pre-Design)
@@ -40,7 +40,7 @@ Feature specs live in `specs/006-go-sync-tool/` (spec, plan, research, tasks). T
 | Principle | Status | Notes |
 |-----------|--------|-------|
 | I. Hugo + Doks | PASS | No changes to site framework. |
-| II. Go Tooling | PASS | Third-party Go dependencies minimized; `gopkg.in/yaml.v3` is the sole dep (also used for peribolos parsing). |
+| II. Go Tooling | PASS | Third-party Go dependencies minimized; `github.com/goccy/go-yaml` is the sole dep (also used for peribolos parsing). |
 | III. Single Source of Truth | PASS | Content sourced from GitHub API. Governance registry (`peribolos.yaml`) is authoritative for which repos exist (Constitution v1.5.0). |
 | IV. Governance-Driven Discovery with Config Overlay | PASS | Repo list derived from `peribolos.yaml`; per-repo metadata from API; `sync-config.yaml` overlay for precision (Constitution v1.5.0). |
 | V. No Runtime JS Frameworks | PASS | Diagram code blocks are rewritten to Kroki format (`render-codeblock-kroki.html`) for server-side rendering rather than using Doks' client-side `render-codeblock-mermaid.html`. No custom JavaScript added. |

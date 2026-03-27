@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 const manifestFile = ".sync-manifest.json"

@@ -9,7 +9,7 @@ The ComplyTime website (`complytime.dev`) documents a growing ecosystem of open-
 
 This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, 10 source files in `package main`) that derives the set of eligible repositories from the org's governance registry (`peribolos.yaml` in the `.github` repo), fetches their README content and per-repo metadata via the GitHub REST API, applies Markdown transforms (heading level shifting, Title Case normalisation with acronym awareness and ALL CAPS normalisation, badge stripping, relative link rewriting, diagram code block rewriting to Kroki format), and generates Hugo-compatible pages and landing page card data. A declarative config overlay (`sync-config.yaml`) provides precision control for repos needing custom documentation layouts.
 
-**Dependencies**: Go 1.25+, `gopkg.in/yaml.v3` (sole third-party Go dep), Hugo 0.155.1 extended, Node.js 22. Diagram rendering requires `@thulite/doks-core`'s `render-codeblock-kroki.html` hook and `krokiURL` in `params.toml` (external service: `https://kroki.io`).
+**Dependencies**: Go 1.25+, `github.com/goccy/go-yaml` (sole third-party Go dep), Hugo 0.155.1 extended, Node.js 22. Diagram rendering requires `@thulite/doks-core`'s `render-codeblock-kroki.html` hook and `krokiURL` in `params.toml` (external service: `https://kroki.io`).
 
 ## Scope
 
@@ -177,7 +177,7 @@ layouts/_default/_markup/
 | NFR-003 | All logging via `log/slog` with structured fields | — |
 | NFR-004 | SPDX license headers on all Go source files | — |
 | NFR-005 | All code in `package main` within `cmd/sync-content/`; no unnecessary packages or abstractions | — |
-| NFR-006 | Only permitted third-party dep: `gopkg.in/yaml.v3` | — |
+| NFR-006 | Only permitted third-party dep: `github.com/goccy/go-yaml` | — |
 | NFR-007 | Generated content gitignored, not committed | — |
 | NFR-008 | Idempotent runs: same input produces same output | — |
 

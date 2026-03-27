@@ -229,7 +229,7 @@ not HEAD. A weekly check workflow (`sync-content-check.yml`) detects upstream
 changes and opens a PR to update the lockfile. This prevents broken or
 undesirable content from reaching production without human review.
 
-**Single package, single dependency.** The entire tool lives in `package main` within `cmd/sync-content/` — domain-organised source files, one third-party dependency (`gopkg.in/yaml.v3`). No separate packages, no interfaces, no abstractions beyond what the problem requires.
+**Single package, single dependency.** The entire tool lives in `package main` within `cmd/sync-content/` — domain-organised source files, one third-party dependency (`github.com/goccy/go-yaml`). No separate packages, no interfaces, no abstractions beyond what the problem requires.
 
 ### Output Entities
 

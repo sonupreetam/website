@@ -808,6 +808,77 @@ func TestProcessRepo_LockedSHA_MatchesUpstream(t *testing.T) {
 	}
 }
 
+func TestSyncRepoDocPages_SkipsIndexMD(t *testing.T) {
+	fetchedFiles := make(map[string]bool)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/repos/testorg/test-repo/contents/docs", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]DirEntry{
+			{Name: "index.md", Path: "docs/index.md", Type: "file"},
+			{Name: "usage.md", Path: "docs/usage.md", Type: "file"},
+		})
+	})
+	mux.HandleFunc("/repos/testorg/test-repo/contents/docs/index.md", func(w http.ResponseWriter, r *http.Request) {
+		fetchedFiles["docs/index.md"] = true
+		_ = json.NewEncoder(w).Encode(FileResponse{
+			Content:  b64("# Index\n\nThis is a mkdocs index."),
+			Encoding: "base64",
+			SHA:      "sha-index",
+		})
+	})
+	mux.HandleFunc("/repos/testorg/test-repo/contents/docs/usage.md", func(w http.ResponseWriter, r *http.Request) {
+		fetchedFiles["docs/usage.md"] = true
+		_ = json.NewEncoder(w).Encode(FileResponse{
+			Content:  b64("# Usage\n\nRun it."),
+			Encoding: "base64",
+			SHA:      "sha-usage",
+		})
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	gh := newTestClient(server.URL)
+	output := t.TempDir()
+	ctx := context.Background()
+
+	repo := Repo{
+		Name:          "test-repo",
+		FullName:      "testorg/test-repo",
+		Description:   "A test repository",
+		Language:      "Go",
+		HTMLURL:       "https://github.com/testorg/test-repo",
+		DefaultBranch: "main",
+		PushedAt:      "2025-01-15T00:00:00Z",
+	}
+
+	discovery := Discovery{ScanPaths: []string{"docs"}}
+	result := &syncResult{}
+	syncRepoDocPages(ctx, gh, "testorg", repo, output, true, discovery, nil, nil, result, "")
+
+	if fetchedFiles["docs/index.md"] {
+		t.Error("index.md should not have been fetched (conflicts with Hugo _index.md)")
+	}
+	if !fetchedFiles["docs/usage.md"] {
+		t.Error("usage.md should have been fetched")
+	}
+
+	indexPath := filepath.Join(output, "content", "docs", "projects", "test-repo", "index.md")
+	if _, err := os.Stat(indexPath); !os.IsNotExist(err) {
+		t.Error("index.md should not have been written (would create Hugo leaf bundle conflict)")
+	}
+
+	usagePath := filepath.Join(output, "content", "docs", "projects", "test-repo", "usage.md")
+	if _, err := os.Stat(usagePath); err != nil {
+		t.Fatalf("usage.md should have been written: %v", err)
+	}
+
+	if result.synced != 1 {
+		t.Errorf("synced = %d, want 1 (only usage.md)", result.synced)
+	}
+}
+
 func TestParseNameList_RepoFilterOverridesExclude(t *testing.T) {
 	_ = parseNameList("")
 	excludeSet := parseNameList("complyctl,complyscribe")

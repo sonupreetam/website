@@ -160,6 +160,9 @@ func syncConfigSource(ctx context.Context, gh *apiClient, src Source, defaults D
 		if file.Transform.RewriteLinks {
 			content = rewriteRelativeLinks(content, owner, repoName, src.Branch)
 		}
+		if file.Transform.RewriteDiagrams {
+			content = rewriteDiagramBlocks(content)
+		}
 
 		out := []byte(content)
 		if len(file.Transform.InjectFrontmatter) > 0 {
@@ -323,6 +326,7 @@ func processRepo(ctx context.Context, gh *apiClient, org, output string, repo Re
 			readme = shiftHeadings(readme)
 			readme = titleCaseHeadings(readme)
 			readme = stripBadges(readme)
+			readme = rewriteDiagramBlocks(readme)
 			readme = rewriteRelativeLinks(readme, org, repo.Name, repo.DefaultBranch)
 		} else {
 			readme = fmt.Sprintf(
@@ -415,6 +419,16 @@ func syncRepoDocPages(ctx context.Context, gh *apiClient, org string, repo Repo,
 				continue
 			}
 
+			// Hugo treats index.md as a leaf bundle, which conflicts
+			// with the _index.md branch bundle (section page) the sync
+			// tool generates for every project directory. Allowing both
+			// causes Hugo to hide the section and its children.
+			if strings.EqualFold(baseName, "index.md") {
+				logger.Info("skipping index.md (conflicts with Hugo _index.md section page)",
+					"src", filePath)
+				continue
+			}
+
 			relPath := strings.TrimPrefix(filePath, scanPath+"/")
 			destRel := filepath.Join("content", "docs", "projects", repo.Name, relPath)
 			destPath := filepath.Join(output, destRel)
@@ -448,6 +462,7 @@ func syncRepoDocPages(ctx context.Context, gh *apiClient, org string, repo Repo,
 			content = stripLeadingH1(content)
 			content = shiftHeadings(content)
 			content = titleCaseHeadings(content)
+			content = rewriteDiagramBlocks(content)
 			fileDir := filepath.Dir(filePath)
 			content = rewriteRelativeLinks(content, org, repo.Name, repo.DefaultBranch, fileDir)
 

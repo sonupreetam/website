@@ -1,0 +1,7 @@
+{{- $light := .Get "light" -}}
+{{- $dark := .Get "dark" -}}
+{{- $alt := .Get "alt" | default "Architecture Diagram" -}}
+<div class="theme-image-wrap">
+  <img src="{{ $light }}" alt="{{ $alt }}" class="img-fluid theme-image-light">
+  <img src="{{ $dark }}" alt="{{ $alt }}" class="img-fluid theme-image-dark">
+</div>

@@ -177,6 +177,22 @@ footer {
   }
 }
 
+// Theme-aware image switching
+.theme-image-dark { display: none; }
+.theme-image-light { display: block; }
+
+[data-bs-theme="dark"] {
+  .theme-image-dark { display: block; }
+  .theme-image-light { display: none; }
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-bs-theme="light"]) {
+    .theme-image-dark { display: block; }
+    .theme-image-light { display: none; }
+  }
+}
+
 // Responsive improvements
 @media (max-width: 991.98px) {
   .section-hero {

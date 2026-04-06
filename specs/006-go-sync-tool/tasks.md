@@ -248,6 +248,26 @@
 
 ---
 
+## Phase 16: Enriched Sync PR Summary (IS-018, SC-019, SC-020)
+
+**Purpose**: Replace the plain repo-list step summary with a structured, linked markdown document that gives content reviewers the information they need to approve a sync PR without leaving GitHub. All changes are in `cmd/sync-content/sync.go` and `cmd/sync-content/sync_test.go`.
+
+**Ref**: IS-017, IS-018 (updated), SC-019, SC-020
+
+- [x] T067 Add `repoSummary` struct to `cmd/sync-content/sync.go`: fields `description string`, `htmlURL string`, `oldSHA string`, `newSHA string`. Add `repoDetails map[string]repoSummary` and `repoFiles map[string][]string` fields to `syncResult`. Add `recordRepoDetail(name string, detail repoSummary)` and `recordRepoFile(repoName, srcPath string)` mutex-guarded helpers. Add `filesProcessed int` counter and `addFileProcessed()` helper. *(Done — `repoSummary` struct + helpers added in PR #6 `d714679`.)*
+
+- [x] T068 Enrich `toMarkdown()` in `cmd/sync-content/sync.go`: sort `added`, `updated`, `removed`, `unchanged` slices alphabetically before rendering. For added repos render `writeNewRepoBlock` (shows `[shortSHA](repo/commit/sha)` when SHA is known). For updated repos render `writeUpdatedRepoBlock` (shows compare range `[old…new](repo/compare/old...new)` when both SHAs are known, falling back to "Pinned to" when only new SHA is available). Each repo line links to the GitHub HTML URL and includes the repo description when available. Add `shortSHA(sha string) string` helper (first 8 chars). *(Done — `writeRepoLine`, `writeNewRepoBlock`, `writeUpdatedRepoBlock`, `shortSHA` added in PR #6 `d714679`.)*
+
+- [x] T069 Add `changedRepoFiles` tracking and split file manifest in `cmd/sync-content/sync.go`: add `changedRepoFiles map[string][]string` field to `syncResult` and `recordChangedRepoFile(repoName, srcPath string)` helper. Update `writeFileManifest` to separate changed files from unchanged files per repo, rendering them in distinct "Changed" and "Unchanged" subsections within the collapsible `<details>` block. Add `repoFileGroup` helper struct for sorted iteration. *(Done — `changedRepoFiles`, `recordChangedRepoFile`, `repoFileGroup` added in PR #6 `df44a1a`.)*
+
+- [x] T070 Wire `repoDetails` population into `processRepo` in `cmd/sync-content/sync.go`: after fetching branch SHA and repo metadata, call `result.recordRepoDetail(repo.Name, repoSummary{...})` with the repo's `htmlURL`, `description`, the locked SHA from `.content-lock.json` as `oldSHA`, and the fetched branch SHA as `newSHA`. Call `result.recordRepoFile` and `result.recordChangedRepoFile` at each write site to populate the file manifest. Call `result.addFileProcessed()` per file processed. *(Done — wiring added across `processRepo` and `syncRepoDocPages` in PR #6.)*
+
+- [x] T071 Add and update tests in `cmd/sync-content/sync_test.go`: tests covering (a) `toMarkdown` output for added/updated/removed/unchanged repos with linked SHA blocks, (b) sorted repo order, (c) `writeFileManifest` changed vs. unchanged split, (d) `shortSHA` helper, (e) `repoSummary` round-trip through `recordRepoDetail`. `go test -race ./cmd/sync-content/...` passes with zero data race warnings. Validates SC-019 and SC-020. *(Done — extensive test coverage added in PR #6 commits `d714679` and `df44a1a`. 57+ test functions pass with `-race`.)*
+
+**Checkpoint**: Content sync PRs show commit comparison links, repo descriptions, and a changed-files breakdown. Output is deterministic. All new behaviour is covered by unit tests. IS-018 fully updated. SC-019 and SC-020 satisfied.
+
+---
+
 ## Appendix: Implicit Coverage Note
 
 > Tasks T003 (dry-run) and T004 (write mode) implicitly exercise the `--timeout`, `--workers` flags, the `maxRetries` constant, and byte-level dedup at their default values. Dedicated isolated tests for these parameters are covered by US6 unit tests (T015, T016) and the race detector run (T017). Hardening phase (Phase 8) covers adversarial and defensive scenarios not reached by happy-path verification.

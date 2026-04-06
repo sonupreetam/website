@@ -8,7 +8,7 @@ Built with [Hugo](https://gohugo.io/) and the [Doks](https://getdoks.org/) theme
 
 ```bash
 npm install
-go run ./cmd/sync-content --org complytime --config sync-config.yaml --write
+make sync      # or: go run ./cmd/sync-content --org complytime --config sync-config.yaml --write
 npm run dev
 ```
 

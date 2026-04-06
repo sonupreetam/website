@@ -44,9 +44,12 @@ oriented quickly.
 | Edit the homepage          | `layouts/home.html` + `content/_index.md`          |
 | Site-wide Hugo settings    | `config/_default/hugo.toml`                        |
 | Theme/feature parameters   | `config/_default/params.toml`                      |
-| Sync project content       | `go run ./cmd/sync-content --org complytime --config sync-config.yaml --write` |
+| Sync project content       | `make sync` (or `go run ./cmd/sync-content --org complytime --config sync-config.yaml --write`) |
+| Sync single repo           | `make sync-single REPO=complytime/<name>`         |
+| Dry-run sync (no writes)   | `make sync-dry`                                   |
 | Configure file sync        | `sync-config.yaml`                                |
-| Run sync tool tests        | `go test -race ./cmd/sync-content/...`            |
+| Run sync tool tests        | `make test-race` (or `go test -race ./cmd/sync-content/...`) |
+| Run all Go checks (CI)     | `make check`                                      |
 
 ---
 
@@ -76,7 +79,8 @@ cd website
 npm install
 
 # 3. Sync project content from GitHub (generates project pages and cards)
-go run ./cmd/sync-content --org complytime --config sync-config.yaml --write
+make sync
+# Equivalent without make: go run ./cmd/sync-content --org complytime --config sync-config.yaml --write
 
 # 4. Start the dev server (live reload)
 npm run dev
@@ -197,7 +201,7 @@ the sync tool from GitHub org repositories. You do not need to create them
 manually. To add a new project:
 
 1. Create the repository in the `complytime` GitHub org
-2. Run the sync tool: `go run ./cmd/sync-content --org complytime --config sync-config.yaml --write`
+2. Run the sync tool: `make sync` (or `go run ./cmd/sync-content --org complytime --config sync-config.yaml --write`)
 3. The repo will automatically get a section index, overview page, and landing
    page card
 
@@ -396,8 +400,7 @@ style: fix indentation in home template
 - [ ] Pages render correctly on the dev server
 - [ ] No broken links or missing images
 - [ ] Frontmatter includes all required fields (`title`, `description`, `weight`)
-- [ ] If Go code was changed: `go vet ./...` and `gofmt -l ./cmd/sync-content/` are clean
-- [ ] If Go code was changed: `go test -race ./cmd/sync-content/...` passes
+- [ ] If Go code was changed: `make check` passes (`go vet`, `gofmt`, and `go test -race`)
 - [ ] Commit messages follow conventional format
 - [ ] DCO sign-off is present
 
@@ -436,6 +439,19 @@ npm run build
 ```
 
 ### Testing the Sync Tool
+
+The Makefile provides handy targets for all common sync and Go operations
+(run `make help` to see all available targets):
+
+```bash
+make sync-dry        # dry-run — reads GitHub, writes nothing
+make sync            # apply changes to disk
+make sync-single REPO=complytime/complyctl  # single-repo dry-run
+make check           # go vet + fmt-check + race tests (CI equivalent)
+make test-race       # tests with race detector only
+```
+
+The equivalent raw commands, if you prefer not to use make:
 
 Dry-run (preview without writing):
 

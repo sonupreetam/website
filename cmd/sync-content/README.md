@@ -61,7 +61,17 @@ For setup, prerequisites, and day-to-day commands, see
 [CONTRIBUTING.md](../../CONTRIBUTING.md#development-workflow). For the full CLI
 flag reference, see the [spec](../../specs/006-go-sync-tool/spec.md#cli-interface).
 
-The essentials:
+The essentials (using the Makefile at the repo root — run `make help` for a full list):
+
+```bash
+make sync-dry                              # dry-run: reads GitHub, writes nothing
+make sync                                  # apply changes to disk
+make sync-single REPO=complytime/complyctl # single-repo apply
+make test-race                             # run tests with race detector
+make check                                 # vet + fmt-check + race tests
+```
+
+Equivalent raw commands:
 
 ```bash
 go run ./cmd/sync-content --org complytime --config sync-config.yaml           # dry-run

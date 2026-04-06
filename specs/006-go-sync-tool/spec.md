@@ -32,7 +32,7 @@ This feature replaces that workflow with a Go CLI tool (`cmd/sync-content/`, 10 
 | IS-014 | Doc page auto-sync from `discovery.scan_paths` directories; upstream `index.md` files are skipped to prevent Hugo leaf/branch bundle conflicts with generated `_index.md` section pages |
 | IS-016 | Single-repo mode (`--repo`): sync only one repository (validated against peribolos) |
 | IS-017 | Summary file generation (`--summary report.md`) |
-| IS-018 | GitHub CI outputs: `GITHUB_OUTPUT` variables and `GITHUB_STEP_SUMMARY` |
+| IS-018 | GitHub CI outputs: enriched `GITHUB_STEP_SUMMARY` and `GITHUB_OUTPUT` variables (`has_changes`, `changed_count`, `error_count`). The step summary is a structured markdown document with sections for Added, Updated, Removed, and Unchanged repos. Added repos include a "Pinned to `[shortSHA]`" commit link. Updated repos include a compare-range link (`[oldShort...newShort](repo/compare/old...new)`). Each repo line includes its GitHub URL and description when available. Repos are sorted alphabetically within each section. A collapsible "Changed files" manifest lists files per repo, separating files changed in the current run from those already present. A total files-processed count is included. All output is deterministic across identical inputs. |
 | IS-030 | Two-tier SHA-based change detection (branch SHA + README SHA) |
 | IS-031 | Stale content cleanup via manifest diff (`cleanOrphanedFiles`); legacy directory-scan fallback removed |
 | IS-040 | Dynamic landing page project cards from `data/projects.json` |
@@ -168,6 +168,21 @@ layouts/_default/_markup/
 .content-lock.json            # Approved upstream SHAs per repo (committed)
 ```
 
+## Key Data Structures
+
+**`repoSummary`** — per-repo metadata captured during a sync run and used to produce enriched summary output:
+
+| Field | Description |
+|-------|-------------|
+| `description` | Repo description from the GitHub API |
+| `htmlURL` | GitHub HTML URL for the repo (used to build commit and compare links) |
+| `oldSHA` | Previously approved branch SHA from `.content-lock.json` |
+| `newSHA` | Current upstream branch SHA fetched during this run |
+
+One `repoSummary` is recorded per processed repo and held in `syncResult.repoDetails` (keyed by repo name). The `toMarkdown()` method uses it to render commit links: new repos get `[shortSHA](repo/commit/sha)`; updated repos get `[old…new](repo/compare/old...new)`.
+
+**`changedRepoFiles`** — a secondary file index (alongside `repoFiles`) that tracks only the source paths of files that changed content in the current sync run. Used by `writeFileManifest` to produce a changed/unchanged split in the collapsible files block.
+
 ## Non-Functional Requirements
 
 | ID | Requirement | Target |
@@ -224,10 +239,12 @@ All criteria must pass before feature 006 merges to `main`.
 | SC-016 | Weekly check workflow creates/updates a PR with lockfile changes | `sync-content-check.yml` manual dispatch |
 | SC-017 | Diagram code blocks in upstream content are rewritten to Kroki format and render server-side (not via client-side JS) | `TestRewriteDiagramBlocks` (12 subtests), `sync.go` pipeline integration (3 call sites) |
 | SC-018 | Upstream `index.md` files are skipped during doc page sync to prevent Hugo leaf/branch bundle conflicts | `TestSyncRepoDocPages_SkipsIndexMD` |
+| SC-019 | Sync step summary includes commit comparison links for updated repos and "Pinned to" links for newly added repos; output is deterministic (alphabetically sorted) | `TestSyncResultToMarkdown_*` in `sync_test.go` |
+| SC-020 | Changed-files manifest correctly separates files modified in the current run from pre-existing unchanged files; `filesProcessed` counter is accurate | `TestWriteFileManifest_*` in `sync_test.go` |
 
 ## Merge Readiness Gate
 
-All 18 success criteria (SC-001 through SC-018) MUST pass before merging feature 006 to `main`. SC-006 tasks cancelled (config sources not declared); code paths covered by unit tests. SC-016 requires a manual `workflow_dispatch` run of `sync-content-check.yml` after merge.
+All 20 success criteria (SC-001 through SC-020) MUST pass before merging feature 006 to `main`. SC-006 tasks cancelled (config sources not declared); code paths covered by unit tests. SC-016 requires a manual `workflow_dispatch` run of `sync-content-check.yml` after merge. SC-019 and SC-020 were added retroactively to capture PR #6 (`feat/improve-sync-summary`) sync summary improvements.
 
 ## Appendix: Legacy ID Cross-Reference
 

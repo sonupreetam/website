@@ -19,12 +19,14 @@ the License.
 {{- /*
 Renders an SVG image of a diagram from a textual description using the Kroki service.
 
-Local override of @thulite/doks-core template:
-- When diagram type is "mermaid", delegates to the client-side mermaid renderer
-  (same output as render-codeblock-mermaid.html) so no external HTTP call is made.
-- For all other types, calls kroki.io as normal but downgrades network fetch
-  failures from errorf (build-breaking) to warnf so that CI builds succeed
-  even when kroki.io is unreachable or returns an error.
+Local override of @thulite/doks-core template (v1.8.3) with two fixes:
+
+1. output_format "SVG" → "svg" (lowercase): the upstream template sends uppercase
+   which kroki.io rejects with HTTP 400 "Bad Request". Known bug:
+   https://github.com/thuliteio/doks-core/issues/106
+
+2. errorf → warnf for network fetch failures: a remote service being unreachable
+   is not an authoring error and should not abort the build.
 
 References:
 
@@ -75,14 +77,6 @@ References:
   {{- errorf "The %q code block render hook does not support diagram type %q. Valid types are %s. See %s" $renderHookName $attrs.type $typesDelimited $position }}
 {{- end }}
 
-{{- /* Mermaid diagrams are rendered client-side — no kroki.io call needed. */}}
-{{- if eq $diagramType "mermaid" }}
-<div class="mermaid text-center">
-  {{- $inner | safeHTML }}
-</div>
-{{ .Page.Store.Set "hasMermaid" true }}
-{{- else }}
-
 {{- /* Determine class attribute. */}}
 {{- $class := printf "diagram diagram-kroki diagram-kroki-%s" $diagramType }}
 {{- with $attrs.class }}
@@ -98,9 +92,9 @@ References:
 {{- /* Merge class and id attributes. */}}
 {{- $attrs = merge $attrs (dict "class" $class "id" $id "alt" "diagram") }}
 
-{{- /* Get diagram. Failures are warnings (not errors) so the build continues
-     even when kroki.io is unreachable or returns a non-2xx response. */}}
-{{- $body := dict "diagram_source" $inner "diagram_type" $diagramType "output_format" "SVG" | jsonify }}
+{{- /* Get diagram. Fix 1: "svg" lowercase (upstream bug sends "SVG" which kroki.io rejects).
+     Fix 2: warnf instead of errorf so network failures do not abort the build. */}}
+{{- $body := dict "diagram_source" $inner "diagram_type" $diagramType "output_format" "svg" | jsonify }}
 {{- $opts := dict "method" "post" "body" $body }}
 {{- with try (resources.GetRemote $apiEndpoint $opts) }}
   {{- with .Err }}
@@ -122,5 +116,4 @@ References:
     {{- end }}
   {{- end -}}
 >
-{{- end }}
 {{- /**/ -}}

@@ -19,9 +19,12 @@ the License.
 {{- /*
 Renders an SVG image of a diagram from a textual description using the Kroki service.
 
-Local override of @thulite/doks-core template: network fetch failures are
-downgraded from errorf (build-breaking) to warnf so that CI builds succeed
-even when kroki.io is unreachable or returns an error.
+Local override of @thulite/doks-core template:
+- When diagram type is "mermaid", delegates to the client-side mermaid renderer
+  (same output as render-codeblock-mermaid.html) so no external HTTP call is made.
+- For all other types, calls kroki.io as normal but downgrades network fetch
+  failures from errorf (build-breaking) to warnf so that CI builds succeed
+  even when kroki.io is unreachable or returns an error.
 
 References:
 
@@ -72,6 +75,14 @@ References:
   {{- errorf "The %q code block render hook does not support diagram type %q. Valid types are %s. See %s" $renderHookName $attrs.type $typesDelimited $position }}
 {{- end }}
 
+{{- /* Mermaid diagrams are rendered client-side — no kroki.io call needed. */}}
+{{- if eq $diagramType "mermaid" }}
+<div class="mermaid text-center">
+  {{- $inner | safeHTML }}
+</div>
+{{ .Page.Store.Set "hasMermaid" true }}
+{{- else }}
+
 {{- /* Determine class attribute. */}}
 {{- $class := printf "diagram diagram-kroki diagram-kroki-%s" $diagramType }}
 {{- with $attrs.class }}
@@ -111,4 +122,5 @@ References:
     {{- end }}
   {{- end -}}
 >
+{{- end }}
 {{- /**/ -}}

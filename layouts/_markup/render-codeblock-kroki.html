@@ -19,14 +19,9 @@ the License.
 {{- /*
 Renders an SVG image of a diagram from a textual description using the Kroki service.
 
-Local override of @thulite/doks-core template (v1.8.3) with two fixes:
-
-1. output_format "SVG" → "svg" (lowercase): the upstream template sends uppercase
-   which kroki.io rejects with HTTP 400 "Bad Request". Known bug:
-   https://github.com/thuliteio/doks-core/issues/106
-
-2. errorf → warnf for network fetch failures: a remote service being unreachable
-   is not an authoring error and should not abort the build.
+Local override of @thulite/doks-core: fixes output_format "SVG" → "svg" (kroki.io
+requires lowercase per its API) and downgrades network fetch failures from errorf
+to warnf so a remote service outage does not abort the build.
 
 References:
 

@@ -132,3 +132,22 @@ preview: sync site-build ## Full preview: sync content then build the site
 .PHONY: clean
 clean: ## Remove the compiled sync-content binary
 	rm -f $(SYNC_BIN)
+
+.PHONY: clean-build
+clean-build: ## Remove Hugo output + resource cache, then rebuild (CI match)
+	rm -rf public/ resources/
+	npm run build
+
+.PHONY: clean-nuclear
+clean-nuclear: ## Full wipe (Hugo output, Hugo cache, node_modules) + fresh npm ci + rebuild
+	rm -rf public/ resources/ /tmp/hugo_cache/ node_modules/
+	npm ci
+	npm run build
+
+.PHONY: reset-sync
+reset-sync: ## Clear all generated sync content + full rebuild (use when sync logic or upstream changes)
+	rm -f .sync-manifest.json data/projects.json
+	rm -rf content/docs/projects/*/
+	rm -rf public/ resources/
+	go run ./cmd/sync-content $(SYNC_FLAGS) --lock $(LOCK) --write
+	npm run build

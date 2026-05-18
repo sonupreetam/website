@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 // mdLinkRe matches Markdown links and images: [text](url) and ![alt](url).
@@ -142,6 +142,24 @@ func injectFrontmatter(content []byte, fm map[string]any) ([]byte, error) {
 
 	buf.Write(body)
 	return buf.Bytes(), nil
+}
+
+// diagramBlockRe matches fenced code blocks whose info-string is a recognised
+// diagram language. The opening fence must be at the start of a line with
+// exactly three backticks followed by the language name and optional whitespace.
+var diagramBlockRe = regexp.MustCompile(`(?m)^` + "```" + `(mermaid|plantuml|d2|graphviz|dot|ditaa|blockdiag|seqdiag|actdiag|nwdiag|packetdiag|rackdiag|c4plantuml|erd|nomnoml|svgbob|wavedrom|vega|vegalite)\s*$`)
+
+// rewriteDiagramBlocks converts standard diagram code blocks (```mermaid, etc.)
+// to the Kroki format (```kroki {type=mermaid}) that Hugo's Kroki render hook
+// expects. The "dot" alias is normalised to "graphviz" for Kroki compatibility.
+func rewriteDiagramBlocks(content string) string {
+	return diagramBlockRe.ReplaceAllStringFunc(content, func(match string) string {
+		lang := strings.TrimSpace(strings.TrimPrefix(match, "```"))
+		if lang == "dot" {
+			lang = "graphviz"
+		}
+		return "```kroki {type=" + lang + "}"
+	})
 }
 
 // insertAfterFrontmatter inserts extra bytes right after the closing "---"

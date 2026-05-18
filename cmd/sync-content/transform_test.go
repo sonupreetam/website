@@ -330,6 +330,113 @@ func TestRewriteRelativeLinks(t *testing.T) {
 	})
 }
 
+func TestRewriteDiagramBlocks(t *testing.T) {
+	t.Run("mermaid block rewritten", func(t *testing.T) {
+		input := "# Doc\n\n```mermaid\ngraph TD\n  A-->B\n```\n\nMore text."
+		result := rewriteDiagramBlocks(input)
+		if !strings.Contains(result, "```kroki {type=mermaid}") {
+			t.Errorf("mermaid block should be rewritten to kroki format, got %q", result)
+		}
+		if strings.Contains(result, "```mermaid") {
+			t.Error("original ```mermaid fence should not remain")
+		}
+		if !strings.Contains(result, "graph TD") {
+			t.Error("diagram body should be preserved")
+		}
+	})
+
+	t.Run("plantuml block rewritten", func(t *testing.T) {
+		input := "```plantuml\n@startuml\nAlice -> Bob\n@enduml\n```"
+		result := rewriteDiagramBlocks(input)
+		if !strings.Contains(result, "```kroki {type=plantuml}") {
+			t.Errorf("plantuml block should be rewritten, got %q", result)
+		}
+	})
+
+	t.Run("d2 block rewritten", func(t *testing.T) {
+		input := "```d2\nx -> y\n```"
+		result := rewriteDiagramBlocks(input)
+		if !strings.Contains(result, "```kroki {type=d2}") {
+			t.Errorf("d2 block should be rewritten, got %q", result)
+		}
+	})
+
+	t.Run("dot alias normalised to graphviz", func(t *testing.T) {
+		input := "```dot\ndigraph { a -> b }\n```"
+		result := rewriteDiagramBlocks(input)
+		if !strings.Contains(result, "```kroki {type=graphviz}") {
+			t.Errorf("dot should be normalised to graphviz, got %q", result)
+		}
+	})
+
+	t.Run("graphviz block rewritten", func(t *testing.T) {
+		input := "```graphviz\ndigraph { a -> b }\n```"
+		result := rewriteDiagramBlocks(input)
+		if !strings.Contains(result, "```kroki {type=graphviz}") {
+			t.Errorf("graphviz block should be rewritten, got %q", result)
+		}
+	})
+
+	t.Run("multiple diagram blocks rewritten", func(t *testing.T) {
+		input := "# Diagrams\n\n```mermaid\ngraph TD\n```\n\nText.\n\n```plantuml\n@startuml\n@enduml\n```"
+		result := rewriteDiagramBlocks(input)
+		if !strings.Contains(result, "```kroki {type=mermaid}") {
+			t.Error("first diagram block should be rewritten")
+		}
+		if !strings.Contains(result, "```kroki {type=plantuml}") {
+			t.Error("second diagram block should be rewritten")
+		}
+	})
+
+	t.Run("non-diagram code blocks unchanged", func(t *testing.T) {
+		input := "```go\nfunc main() {}\n```\n\n```python\nprint('hi')\n```"
+		result := rewriteDiagramBlocks(input)
+		if result != input {
+			t.Errorf("non-diagram code blocks should be unchanged\ngot:  %q\nwant: %q", result, input)
+		}
+	})
+
+	t.Run("already kroki block unchanged", func(t *testing.T) {
+		input := "```kroki {type=mermaid}\ngraph TD\n```"
+		result := rewriteDiagramBlocks(input)
+		if result != input {
+			t.Errorf("already-kroki block should be unchanged\ngot:  %q\nwant: %q", result, input)
+		}
+	})
+
+	t.Run("no code blocks unchanged", func(t *testing.T) {
+		input := "# Title\n\nPlain text with no code blocks."
+		result := rewriteDiagramBlocks(input)
+		if result != input {
+			t.Errorf("content without code blocks should be unchanged\ngot:  %q\nwant: %q", result, input)
+		}
+	})
+
+	t.Run("closing fence not touched", func(t *testing.T) {
+		input := "```mermaid\ngraph TD\n  A-->B\n```\n"
+		result := rewriteDiagramBlocks(input)
+		if !strings.HasSuffix(strings.TrimRight(result, "\n"), "```") {
+			t.Errorf("closing fence should remain unchanged, got %q", result)
+		}
+	})
+
+	t.Run("trailing whitespace on fence handled", func(t *testing.T) {
+		input := "```mermaid   \ngraph TD\n```"
+		result := rewriteDiagramBlocks(input)
+		if !strings.Contains(result, "```kroki {type=mermaid}") {
+			t.Errorf("trailing whitespace should be handled, got %q", result)
+		}
+	})
+
+	t.Run("inline mermaid reference not rewritten", func(t *testing.T) {
+		input := "Use ```mermaid blocks for diagrams."
+		result := rewriteDiagramBlocks(input)
+		if result != input {
+			t.Errorf("inline reference should not be rewritten\ngot:  %q\nwant: %q", result, input)
+		}
+	})
+}
+
 func TestInsertAfterFrontmatter(t *testing.T) {
 	t.Run("with frontmatter", func(t *testing.T) {
 		content := []byte("---\ntitle: Test\n---\n\nBody text")

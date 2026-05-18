@@ -1,3 +1,10 @@
 {
-  "repos": {}
+  "repos": {
+    "complyctl": "0fa6db64fc35267a004e8709418e2402cfe25bda",
+    "complyscribe": "8c204022b2e6ff56759c2d1b69aa62026b62d5ae",
+    "complytime": "49c00b3974809ab72d280c7b24985ff53761f157",
+    "complytime-collector-components": "913c152a3a823a814b1edf7ceb49a2a086537ee3",
+    "complytime-providers": "2459f094376a3aee50805b0af1599d1562e7588b",
+    "gemara-content-service": "7aef79bfd8fb705d8f37b1cf441a59ab73667a3b"
+  }
 }

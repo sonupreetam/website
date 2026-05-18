@@ -2,4 +2,4 @@ module github.com/complytime/website
 
 go 1.25.8
 
-require gopkg.in/yaml.v3 v3.0.1
+require github.com/goccy/go-yaml v1.15.23

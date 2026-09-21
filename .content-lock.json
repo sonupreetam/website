@@ -1,8 +1,12 @@
 {
   "repos": {
-    "complyctl": "9515e3dafb25a8f4b17e61ebcc79d4a1668cd6af",
-    "complyscribe": "e04417ca36b2c8a27ddd415276dbc280b22551da",
-    "complytime-collector-components": "a41ce268c1bfcd13fcad1ae303c79e791bfa4a54",
-    "gemara-content-service": "87db142bea2b5f50df16fcdee5c1377a2f608f78"
+    "complyapi": "c20bf3e1e64659f8e3714135cac0cb25dcc248fa",
+    "complyctl": "bd3679e2e123592f8db643347fe5426660f45eec",
+    "complypack": "05c8ef4cb7524d3706e8d48caf787d1edfa0a878",
+    "complyscribe": "8c204022b2e6ff56759c2d1b69aa62026b62d5ae",
+    "complytime": "5f4adb8c0e2a9209ccf6403f23910c9c9fbcaf6c",
+    "complytime-collector-components": "02ab79d15040e6ab994c778ef5b078c483328162",
+    "complytime-providers": "c4750dbccc390c2c948791bd54e745c465143b67",
+    "homebrew-tap": "27285e124b41e4ca888a9396cb5b5516c7e1f7e8"
   }
 }
